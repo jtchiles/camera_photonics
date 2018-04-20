@@ -11,6 +11,7 @@ import cv2
 import math
 import sys
 import matplotlib.pyplot as plt
+import matplotlib.text
 #import os
 #os.chdir('C:\\folder_with_image_file')
 
@@ -52,12 +53,14 @@ def f_camera_photonics(filename, varargin = 0):
     
     #open file as array of uint8 for veiwing and selecting
     img = cv2.imread(filename,0)
+    img_array = np.array(img)
+#    plt.imshow(img_array)
     #open file as full 16 bit tiff image
     img2 = cv2.imread(filename,-1)
     
     ## WARNING: DO NOT ATTEMPT TO SHOW THE 16 bit file because it will probably crash python 
     print("\n\nSelect a region of pixels which you want to be blacked out. Every pixel inside this box will be set to black. When you see the white box hit enter or space.")
-    r = cv2.selectROI(windowName="Black out Region Selector", img=img)
+    r = cv2.selectROI(windowName="Black out Region Selector", img=img_array)
     img = make_pixels_black(img, r)
     img2 = make_pixels_black(img2, r)
     cv2.destroyWindow("Black out Region Selector")
@@ -110,7 +113,8 @@ def f_camera_photonics(filename, varargin = 0):
         
     # processing to find the gratings/ports
      # convolution-like operation scanning around the image to find power
-    P_window = [];
+    P_window = []
+    figures = []
     
     if(len(box) <= 0): #if box exists
         for i in range(radius*2+1, row-radius*2-pixel_increment, pixel_increment): #step by pixel increment
@@ -165,6 +169,7 @@ def f_camera_photonics(filename, varargin = 0):
                 plt.title("Spot at X= " + str(y) + ", Y= " + str(x)) ## somehow it seems x and y are switched here...
                 plt.colorbar()
                 plt.show()
+                figures.append(fig_count)
                 
                 prev_x.append(x)
                 prev_y.append(y)
@@ -178,6 +183,7 @@ def f_camera_photonics(filename, varargin = 0):
         
         # now we have radius, x and y values, calculate the actaul powers
         P = []
+        P_norm = []
         for i in range(0, nports):
             x = P_ports[i, 1]
             y = P_ports[i, 2]
@@ -186,8 +192,15 @@ def f_camera_photonics(filename, varargin = 0):
             dim3 = np.array([y/col-0.75*radius/col, (row-x)/row-0.75*radius/row, 2*radius/col, 2*radius/row])
             subregion = img2[int(x)-this_radius:int(x)+this_radius, int(y)-this_radius:int(y)+this_radius]
             P.append(np.sum(subregion))
-            P_norm = P[i]/P[0]
-            P_ports[i,0] = P[i]/P[0] #normalized to max power of 1
+            P_norm.append(P[i]/P[0])
+            
+            P_ports[i,0] = P[i] 
+
+        for i, x in enumerate(figures):
+            #add power to figures
+            plt.figure(x)
+            plt.annotate("Normalized Power: " + str(P_norm[i]), (0,0.05), xycoords ='axes fraction', color="white")
+            
         
         radius = prev_radius
     #    P_ports = np.sort(P_ports)
@@ -204,6 +217,8 @@ def f_camera_photonics(filename, varargin = 0):
             subregion = img2[x-this_radius:x+this_radius, y-this_radius:y+this_radius]
             P[i] = np.sum(subregion)
         P_ports = np.array([P.transpose(), x_vec, y_vec])
+
+
         
         
     for i in range(0, nports):
@@ -212,8 +227,11 @@ def f_camera_photonics(filename, varargin = 0):
         annotation = "(" + str(P_ports[i,2]) + ", " + str(P_ports[i,1]) + ")"
         cv2.putText(img,annotation,(int(P_ports[i,2]-4*radius[i]),int(P_ports[i,1]-2*radius[i])), font, 0.3,(255,255,255),1,cv2.LINE_AA)
     cv2.imshow('Spot Locations Image',img)
+    plt.figure()
+    plt.imshow(img)
+
     
-    pout = {"power": P_ports[:,0], "x":P_ports[:,1], "y":P_ports[:,2], "radius":radius}
+    pout = {"Total Power": P_ports[:,0], "Normalized Power":P_norm, "x":P_ports[:,1], "y":P_ports[:,2], "radius":radius}
     print("\n\nPress 0 to close the image and return the function")
     cv2.waitKey(0)
     cv2.destroyWindow("Spot Locations Image")

@@ -226,15 +226,16 @@ def f_camera_photonics(filename, varargin = 0):
         font = cv2.FONT_HERSHEY_SIMPLEX
         annotation = "(" + str(P_ports[i,2]) + ", " + str(P_ports[i,1]) + ")"
         cv2.putText(img,annotation,(int(P_ports[i,2]-4*radius[i]),int(P_ports[i,1]-2*radius[i])), font, 0.3,(255,255,255),1,cv2.LINE_AA)
-    cv2.imshow('Spot Locations Image',img)
+#    cv2.imshow('Spot Locations Image',img)
     plt.figure()
     plt.imshow(img)
+    plt.title("Location of Selected Spots")
 
     
     pout = {"Total Power": P_ports[:,0], "Normalized Power":P_norm, "x":P_ports[:,1], "y":P_ports[:,2], "radius":radius}
-    print("\n\nPress 0 to close the image and return the function")
-    cv2.waitKey(0)
-    cv2.destroyWindow("Spot Locations Image")
+#    print("\n\nPress 0 to close the image and return the function")
+#    cv2.waitKey(0)
+#    cv2.destroyWindow("Spot Locations Image")
     return pout
             
         

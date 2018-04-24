@@ -58,16 +58,23 @@ def f_camera_photonics(filename, varargin = 0):
     #open file as full 16 bit tiff image
     img2 = cv2.imread(filename,-1)
     
+    img_8bit = np.log(img)
+    img_8bit = img_8bit - np.min(np.min(img_8bit))
+    img_8bit = 255 - img_8bit / (np.max(np.max(img_8bit)))*255
+    img_8bit = np.array(img_8bit, dtype = np.uint8)
+    img_array = img_8bit
+    
+    
     ## WARNING: DO NOT ATTEMPT TO SHOW THE 16 bit file because it will probably crash python 
     print("\n\nSelect a region of pixels which you want to be blacked out. Every pixel inside this box will be set to black. When you see the white box hit enter or space.")
     r = cv2.selectROI(windowName="Black out Region Selector", img=img_array)
-    img = make_pixels_black(img, r)
+    img_array = make_pixels_black(img_array, r,255)
     img2 = make_pixels_black(img2, r)
     cv2.destroyWindow("Black out Region Selector")
     
     print("\n\nSelect a region of pixels which will be used to calculate the mean value of the image. This region should not contain the black region above, or any of the bright spots on the image. When you see the white box, hit enter or space.")
-    mean_r = cv2.selectROI(windowName="Mean Pixel Value Selector", img=img)
-    mean_value = calculate_pixel_mean(img, mean_r)
+    mean_r = cv2.selectROI(windowName="Mean Pixel Value Selector", img=img_array)
+    mean_value = calculate_pixel_mean(img_array, mean_r)
     mean_value2 = calculate_pixel_mean(img2, mean_r)
     
     #print(mean_value)
@@ -94,7 +101,12 @@ def f_camera_photonics(filename, varargin = 0):
     #bright_pixel_threshold = 5000 #16 bit minimum value of a "bright" pixel
     
     min_residual = 1.03
-    saturation_level = math.pow(2,16)-3000
+    if(type(img2[0,0]) == np.uint16):
+        saturation_level = math.pow(2,16)-3000
+    elif(type(img2[0,0]) == np.uint8):
+        saturation_level = math.pow(2,8)-30
+    elif(type(img2[0,0]) == np.uint32):
+        saturation_level = math.pow(2,32)-10000000
     pixel_increment = 3
     #bloom = 1
     rmax = 10
@@ -134,7 +146,7 @@ def f_camera_photonics(filename, varargin = 0):
         prev_y = []
         prev_radius = []
         near_pixel = 0
-        fig_count = 0
+        fig_count = 1
         #find the top nports candidates based on power
         
         while P_ports.shape[0] < nports:
@@ -148,7 +160,6 @@ def f_camera_photonics(filename, varargin = 0):
                 if(abs(prev_x[i]-x) < prev_radius[i]*2) and (abs(prev_y[i] -y) < prev_radius[i]*2):
                     P_window[I[0],0] = 0 # null out anything close to the previous peak
                     near_pixel = 1
-                    fig_count += 1
 
             
             if (near_pixel == 0):
@@ -170,6 +181,8 @@ def f_camera_photonics(filename, varargin = 0):
                 plt.colorbar()
                 plt.show()
                 figures.append(fig_count)
+                fig_count += 1
+
                 
                 prev_x.append(x)
                 prev_y.append(y)
@@ -222,14 +235,14 @@ def f_camera_photonics(filename, varargin = 0):
         
         
     for i in range(0, nports):
-        cv2.rectangle(img, (int(P_ports[i,2]-radius[i]), int(P_ports[i,1]-radius[i])), (int(P_ports[i,2] + radius[i]), int(P_ports[i,1]+radius[i])), (255,0,0), 2)
+        cv2.rectangle(img_array, (int(P_ports[i,2]-radius[i]), int(P_ports[i,1]-radius[i])), (int(P_ports[i,2] + radius[i]), int(P_ports[i,1]+radius[i])), (0,0,0), 2)
         font = cv2.FONT_HERSHEY_SIMPLEX
         annotation = "(" + str(P_ports[i,2]) + ", " + str(P_ports[i,1]) + ")"
-        cv2.putText(img,annotation,(int(P_ports[i,2]-4*radius[i]),int(P_ports[i,1]-2*radius[i])), font, 0.3,(255,255,255),1,cv2.LINE_AA)
-#    cv2.imshow('Spot Locations Image',img)
-    plt.figure()
-    plt.imshow(img)
-    plt.title("Location of Selected Spots")
+        cv2.putText(img_array,annotation,(int(P_ports[i,2]-4*radius[i]),int(P_ports[i,1]-2*radius[i])), font, 0.3,(0,0,0),1,cv2.LINE_AA)
+    cv2.imshow('Spot Locations Image',img_array)
+#    plt.figure()
+#    plt.imshow(img_array)
+#    plt.title("Location of Selected Spots")
 
     
     pout = {"Total Power": P_ports[:,0], "Normalized Power":P_norm, "x":P_ports[:,1], "y":P_ports[:,2], "radius":radius}

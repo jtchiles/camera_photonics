@@ -20,7 +20,7 @@ varargin = 0
 def f_camera_photonics(filename, varargin = 0):
 #    filename = "smb_tminput_shortsp_shortrt_tmout.tiff"
     if varargin == 0:
-        nports = 3
+        nports = 1
         box = []
         x_set = []
         y_set = []
@@ -149,7 +149,7 @@ def f_camera_photonics(filename, varargin = 0):
         fig_count = 1
         #find the top nports candidates based on power
         
-        while P_ports.shape[0] < nports:
+        while P_ports.shape[0] < nports or P_ports.shape[1] == 0:
             M,I = P_window.max(0),P_window.argmax(0)
             I2 = [P_window[I[0],1],P_window[I[0],2]]
             x=int(I2[0])
@@ -201,8 +201,8 @@ def f_camera_photonics(filename, varargin = 0):
             x = P_ports[i, 1]
             y = P_ports[i, 2]
             this_radius = prev_radius[i]
-            dim2 = np.array([y/col-1*this_radius/col, (row-x)/row-1*this_radius/row, 2*this_radius/col, 2*this_radius/row])
-            dim3 = np.array([y/col-0.75*radius/col, (row-x)/row-0.75*radius/row, 2*radius/col, 2*radius/row])
+            #dim2 = np.array([y/col-1*this_radius/col, (row-x)/row-1*this_radius/row, 2*this_radius/col, 2*this_radius/row])
+            #dim3 = np.array([y/col-0.75*radius/col, (row-x)/row-0.75*radius/row, 2*radius/col, 2*radius/row])
             subregion = img2[int(x)-this_radius:int(x)+this_radius, int(y)-this_radius:int(y)+this_radius]
             P.append(np.sum(subregion))
             P_norm.append(P[i]/P[0])

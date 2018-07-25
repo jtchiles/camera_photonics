@@ -191,36 +191,31 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
     img = cv2.imread(filename,0)
     img_array = np.array(img)
 
-    if(cfg.use_darkfield is True):
-        img_darkfield=cv2.imread(cfg.darkfield_filename,-1)
-        
-
     #open file as full 16 bit tiff image
     img2 = cv2.imread(filename,-1)
     max_img8bit = np.max(img)
     scaled_img = img*max_img8bit
-    
+
+    if(cfg.use_darkfield is True):
+        img_darkfield=cv2.imread(cfg.darkfield_filename,-1)
+
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    
-#   IF THE IMAGE SHOWS ALL BLACK, UNCOMMENT THIS CODE AND COMMENT THE BELOW SECTION
-    
-    img_8bit = scaled_img - np.min(scaled_img)
 
-    img_8bit = np.log10(img_8bit)
-    img_8bit = 255 - img_8bit / (np.max(img_8bit))*255
-    img_8bit = np.array(img_8bit, dtype = np.uint8)
-    img_array = img_8bit
+#   IF THE IMAGE SHOWS ALL BLACK, SET THIS TO TRUE
+    if True:
+        img_8bit = scaled_img - np.min(scaled_img)
 
-#++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    
-    # ONLY ONE OF THESE TWO SECTIONS SHOULD BE UNCOMMENTED AT A TIME
-
-    # img_8bit = np.log(img)
-    # img_8bit = img_8bit - np.min(img_8bit)
-    # img_8bit = 255 - img_8bit / (np.max(img_8bit))*255
-    # img_8bit = np.array(img_8bit, dtype = np.uint8)
-    # img_array = img_8bit
-    # plt.imshow(img_array)
+        img_8bit = np.log10(img_8bit)
+        img_8bit = 255 - img_8bit / (np.max(img_8bit))*255
+        img_8bit = np.array(img_8bit, dtype = np.uint8)
+        img_array = img_8bit
+    else:
+        img_8bit = np.log(img)
+        img_8bit = img_8bit - np.min(img_8bit)
+        img_8bit = 255 - img_8bit / (np.max(img_8bit))*255
+        img_8bit = np.array(img_8bit, dtype = np.uint8)
+        img_array = img_8bit
+        plt.imshow(img_array)
 
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

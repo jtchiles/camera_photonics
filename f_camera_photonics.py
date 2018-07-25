@@ -47,6 +47,7 @@ def get_all_config(configfile=None, **overrides):
     cfg.use_valid_box=Config.getboolean("signal_processing","use_valid_box")
     cfg.box_width=Config.getint("signal_processing","box_width")
     cfg.max_box_width=Config.getint("signal_processing","max_box_width")
+    cfg.kernel_width=Config.getint("signal_processing","kernel_width")
     cfg.min_residual=Config.getfloat("signal_processing","min_residual")
     cfg.pixel_increment=Config.getint("signal_processing","pixel_increment")
     cfg.default_nports=Config.getint("signal_processing","default_nports")
@@ -91,12 +92,14 @@ def calculate_pixel_mean(img, dimensions):
 
 def pick_ports(image, nports, cfg):
     # convolution-like operation scanning around the image to find power
-    box_width = cfg.box_width  # hack
     P_window = []
     figures = []
-    for i in range(box_width*2+1, cfg.row-box_width*2-cfg.pixel_increment, cfg.pixel_increment): #step by pixel increment
-        for j in range(box_width*2+1, cfg.col-box_width*2-cfg.pixel_increment, cfg.pixel_increment):
-            subregion = image[i-box_width:i+box_width, j-box_width:j+box_width]
+    window_centers = lambda pixels: range(cfg.kernel_width*2+1, 
+                                          pixels-cfg.kernel_width*2-cfg.pixel_increment,
+                                          cfg.pixel_increment)
+    for i in (window_centers(cfg.row)):
+        for j in (window_centers(cfg.col)):
+            subregion = image[i-cfg.kernel_width:i+cfg.kernel_width, j-cfg.kernel_width:j+cfg.kernel_width]
             P = np.sum(subregion)
             P_window.append([P, i, j])
 
@@ -127,10 +130,10 @@ def pick_ports(image, nports, cfg):
 
 
         if (near_pixel == 0):
-            subregion = image[int(x-box_width):int(x+box_width), int(y-box_width):int(y+box_width)]
+            r = cfg.box_width
+            subregion = image[int(x-r):int(x+r), int(y-r):int(y+r)]
             power_prev = np.sum(subregion)
             power_current = power_prev
-            r = box_width
             residual=2
             while((residual > cfg.min_residual) and (r < cfg.max_box_width)):
                 r = r+1
@@ -175,7 +178,6 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
     filename = os.path.realpath(filename)
 
     cfg = get_all_config(configfile)
-    box_width = cfg.box_width  # temporary, because its used so much
 
     if box_spec is None:
         nports = cfg.default_nports

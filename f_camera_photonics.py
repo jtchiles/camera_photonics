@@ -57,55 +57,66 @@ def get_all_config(configfile=None, **overrides):
     return cfg
 
 
-def f_camera_photonics(filename, varargin = 0):
+#### Pixel iterating modifier functions:
+
+#null out pixels within an ROI
+def make_pixels_black(img, dimensions, value=0):
+    if (len(dimensions) == 4):
+        for x in range(dimensions[1], dimensions[1]+dimensions[3]):
+            for y in range(dimensions[0],dimensions[0]+dimensions[2]):
+                img[x,y] = value
+    return img
+
+#replace the pixels in an ROI of one array with those of another array
+def swap_pixel_data(img_orig, img_new, dimensions):
+    img_temp=img_orig
+    if (len(dimensions) == 4):
+        for x in range(dimensions[1], dimensions[1]+dimensions[3]):
+            for y in range(dimensions[0],dimensions[0]+dimensions[2]):
+                img_temp[x,y] = img_new[x,y]
+    return img_temp
+
+#calculate mean value over an ROI
+def calculate_pixel_mean(img, dimensions):
+    pixel_count = 0
+    pixel_sum = 0
+    if (len(dimensions) == 4):
+        for x in range(dimensions[1], dimensions[1]+dimensions[3]):
+            for y in range(dimensions[0],dimensions[0]+dimensions[2]):
+                pixel_count += 1
+                pixel_sum = pixel_sum + img[x,y]
+    pixel_avg = pixel_sum / pixel_count
+    return pixel_avg
+
+
+#### Main function
+
+def f_camera_photonics(filename, box_spec=None, configfile=None):
+    ''' Not backwards compatible! - filename is now relative to user's directory.
+
+        To skip the user interface, give box_spec.
+        It is an array of (x, y, width) rows.
+    '''
 
     #first, get the os-independent directories and filenames put together
-    os.chdir(os.path.dirname(os.path.realpath(__file__)))
+    # os.chdir(os.path.dirname(os.path.realpath(__file__)))
+    filename = os.path.realpath(filename)
 
-    cfg = get_all_config()
+    cfg = get_all_config(configfile)
     box_width = cfg.box_width  # temporary, because its used so much
 
-    if varargin == 0:
+    if box_spec is None:
         nports = cfg.default_nports
         box = []
         x_set = []
         y_set = []
         box_width_set = []
     else:
-        box = varargin[0]
-        x_set = box[:,0]
-        y_set = box[:,1]
-        box_width_set = box[:,3]
+        box = box_spec
+        x_set = box_spec[:,0]
+        y_set = box_spec[:,1]
+        box_width_set = box_spec[:,3]
         nports = len(x_set)
-
-    #null out pixels within an ROI
-    def make_pixels_black(img, dimensions, value=0):
-        if (len(dimensions) == 4):
-            for x in range(dimensions[1], dimensions[1]+dimensions[3]):
-                for y in range(dimensions[0],dimensions[0]+dimensions[2]):
-                    img[x,y] = value
-        return img
-
-    #replace the pixels in an ROI of one array with those of another array
-    def swap_pixel_data(img_orig, img_new, dimensions):
-        img_temp=img_orig
-        if (len(dimensions) == 4):
-            for x in range(dimensions[1], dimensions[1]+dimensions[3]):
-                for y in range(dimensions[0],dimensions[0]+dimensions[2]):
-                    img_temp[x,y] = img_new[x,y]
-        return img_temp
-
-    #calculate mean value over an ROI
-    def calculate_pixel_mean(img, dimensions):
-        pixel_count = 0
-        pixel_sum = 0
-        if (len(dimensions) == 4):
-            for x in range(dimensions[1], dimensions[1]+dimensions[3]):
-                for y in range(dimensions[0],dimensions[0]+dimensions[2]):
-                    pixel_count += 1
-                    pixel_sum = pixel_sum + img[x,y]
-        pixel_avg = pixel_sum / pixel_count
-        return pixel_avg
 
     #open file as array of uint8 for viewing and selecting
     img = cv2.imread(filename,0)
@@ -333,7 +344,7 @@ if(__name__ == "__main__"):
 #    filename = "grating1_TE_1310nm_300.tiff"
     filename = "first_look-nolamp.tif"
 
-    pout = f_camera_photonics(filename, varargin = 0)
+    pout = f_camera_photonics(filename)
     print(pout)
 
 

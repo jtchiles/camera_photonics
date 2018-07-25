@@ -89,13 +89,15 @@ def calculate_pixel_mean(img, dimensions):
     return pixel_avg
 
 
+
+
 #### Main function
 
 def f_camera_photonics(filename, box_spec=None, configfile=None):
     ''' Not backwards compatible! - filename is now relative to user's directory.
 
         To skip the user interface, give box_spec.
-        It is an array of (x, y, width) rows.
+        It is an np.ndarray like [[x1, y1, width1] , [x2, y2, width2]], where "width" is side length of sqaure box
     '''
 
     #first, get the os-independent directories and filenames put together
@@ -107,16 +109,11 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
 
     if box_spec is None:
         nports = cfg.default_nports
-        box = []
-        x_set = []
-        y_set = []
-        box_width_set = []
     else:
-        box = box_spec
-        x_set = box_spec[:,0]
-        y_set = box_spec[:,1]
-        box_width_set = box_spec[:,3]
-        nports = len(x_set)
+        x_vec = box_spec[:,0]
+        y_vec = box_spec[:,1]
+        box_width_vec = box_spec[:,3]
+        nports = len(x_vec)
 
     #open file as array of uint8 for viewing and selecting
     img = cv2.imread(filename,0)
@@ -191,16 +188,16 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
 
     #check if saturation has occurred
     if(maxval >= saturation_level):
-        print("## ERROR ##")
-        print("Image Saturated!")
-        sys.exit()
+        raise RuntimeError("Image Saturated!")
 
     # processing to find the gratings/ports
      # convolution-like operation scanning around the image to find power
     P_window = []
     figures = []
 
-    if(len(box) <= 0): #if box exists
+    if box_spec is None:
+        n_ports = cfg.default_nports
+
         for i in range(box_width*2+1, cfg.row-box_width*2-cfg.pixel_increment, cfg.pixel_increment): #step by pixel increment
             for j in range(box_width*2+1, cfg.col-box_width*2-cfg.pixel_increment, cfg.pixel_increment):
                 subregion = img2[i-box_width:i+box_width, j-box_width:j+box_width]
@@ -278,11 +275,8 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
         x_vec=P_ports[:,1]
         y_vec=P_ports[:,2]
     else:
-        x_vec = x_set
-        y_vec = y_set
-        box_width = box_width_set
         for i in range(0, nports):
-            this_box_width = box_width[i]
+            this_box_width = box_width_vec[i]
             x = x_vec[i]
             y = y_vec[i]
             subregion = img2[x-this_box_width:x+this_box_width, y-this_box_width:y+this_box_width]

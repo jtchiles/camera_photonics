@@ -89,6 +89,76 @@ def calculate_pixel_mean(img, dimensions):
     return pixel_avg
 
 
+def pick_ports(image, nports, cfg):
+    # convolution-like operation scanning around the image to find power
+    box_width = cfg.box_width  # hack
+    P_window = []
+    figures = []
+    for i in range(box_width*2+1, cfg.row-box_width*2-cfg.pixel_increment, cfg.pixel_increment): #step by pixel increment
+        for j in range(box_width*2+1, cfg.col-box_width*2-cfg.pixel_increment, cfg.pixel_increment):
+            subregion = image[i-box_width:i+box_width, j-box_width:j+box_width]
+            P = np.sum(subregion)
+            P_window.append([P, i, j])
+
+    P_window = np.array(P_window)
+    M,I = image.max(0),image.argmax(0)
+
+    #More Parameters
+    P_ports = np.array([[]])
+    prev_x = []
+    prev_y = []
+    prev_box_width = []
+    near_pixel = 0
+    fig_count = 1
+
+    #find the top nports candidates based on power
+    while P_ports.shape[0] < nports or P_ports.shape[1] == 0:
+        M,I = P_window.max(0),P_window.argmax(0)
+        I2 = [P_window[I[0],1],P_window[I[0],2]]
+        x=int(I2[0])
+        y=int(I2[1])
+
+        for i in range(0, len(prev_x)):
+            #TODO fix line 112
+            #see if the current candidate is too close to the last peak location
+            if(abs(prev_x[i]-x) < prev_box_width[i]*3) and (abs(prev_y[i] -y) < prev_box_width[i]*3):
+                P_window[I[0],0] = 0 # null out anything close to the previous peak
+                near_pixel = 1
+
+
+        if (near_pixel == 0):
+            subregion = image[int(x-box_width):int(x+box_width), int(y-box_width):int(y+box_width)]
+            power_prev = np.sum(subregion)
+            power_current = power_prev
+            r = box_width
+            residual=2
+            while((residual > cfg.min_residual) and (r < cfg.max_box_width)):
+                r = r+1
+                subregion = image[int(x-r):int(x+r), int(y-r):int(y+r)]
+                power_current = np.sum(subregion)
+                if power_prev!=0:
+                    residual = power_current/power_prev
+                else:
+                    residual=0
+                power_prev = power_current
+
+            fig_count += 1
+
+
+            prev_x.append(x)
+            prev_y.append(y)
+            prev_box_width.append(r)
+
+            if(P_ports.size > 0):
+                P_ports = np.concatenate([P_ports, P_window[int(I[0])].reshape(1,3)])
+            else:
+                P_ports = P_window[int(I[0])].reshape(1,3)
+        near_pixel = 0
+
+    x_vec=P_ports[:,1]
+    y_vec=P_ports[:,2]
+    box_width_vec = prev_box_width
+    return x_vec, y_vec, box_width_vec
 
 
 #### Main function
@@ -190,126 +260,56 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
     if(maxval >= saturation_level):
         raise RuntimeError("Image Saturated!")
 
-    # processing to find the gratings/ports
-     # convolution-like operation scanning around the image to find power
-    P_window = []
-    figures = []
-
+    # find the gratings/ports
     if box_spec is None:
         n_ports = cfg.default_nports
-
-        for i in range(box_width*2+1, cfg.row-box_width*2-cfg.pixel_increment, cfg.pixel_increment): #step by pixel increment
-            for j in range(box_width*2+1, cfg.col-box_width*2-cfg.pixel_increment, cfg.pixel_increment):
-                subregion = img2[i-box_width:i+box_width, j-box_width:j+box_width]
-                P = np.sum(subregion)
-                P_window.append([P, i, j])
-
-        P_window = np.array(P_window)
-        M,I = img2.max(0),img2.argmax(0)
-
-        #More Parameters
-        P_ports = np.array([[]])
-        prev_x = []
-        prev_y = []
-        prev_box_width = []
-        near_pixel = 0
-        fig_count = 1
-
-        #find the top nports candidates based on power
-        while P_ports.shape[0] < nports or P_ports.shape[1] == 0:
-            M,I = P_window.max(0),P_window.argmax(0)
-            I2 = [P_window[I[0],1],P_window[I[0],2]]
-            x=int(I2[0])
-            y=int(I2[1])
-
-            for i in range(0, len(prev_x)):
-                #TODO fix line 112
-                #see if the current candidate is too close to the last peak location
-                if(abs(prev_x[i]-x) < prev_box_width[i]*3) and (abs(prev_y[i] -y) < prev_box_width[i]*3):
-                    P_window[I[0],0] = 0 # null out anything close to the previous peak
-                    near_pixel = 1
-
-
-            if (near_pixel == 0):
-                subregion = img2[int(x-box_width):int(x+box_width), int(y-box_width):int(y+box_width)]
-                power_prev = np.sum(subregion)
-                power_current = power_prev
-                r = box_width
-                residual=2
-                while((residual > cfg.min_residual) and (r < cfg.max_box_width)):
-                    r = r+1
-                    subregion = img2[int(x-r):int(x+r), int(y-r):int(y+r)]
-                    power_current = np.sum(subregion)
-                    if power_prev!=0:
-                        residual = power_current/power_prev
-                    else:
-                        residual=0
-                    power_prev = power_current
-
-                fig_count += 1
-
-
-                prev_x.append(x)
-                prev_y.append(y)
-                prev_box_width.append(r)
-
-                if(P_ports.size > 0):
-                    P_ports = np.concatenate([P_ports, P_window[int(I[0])].reshape(1,3)])
-                else:
-                    P_ports = P_window[int(I[0])].reshape(1,3)
-            near_pixel = 0
-
-        # now we have box_width, x and y values, calculate the actual powers from the real data
-        P = []
-        P_norm = []
-        for i in range(0, nports):
-            x = P_ports[i, 1]
-            y = P_ports[i, 2]
-            this_box_width = prev_box_width[i]
-            subregion = img2[int(x)-this_box_width:int(x)+this_box_width, int(y)-this_box_width:int(y)+this_box_width]
-            P.append(np.sum(subregion))
-            P_norm.append(P[i])
-
-            P_ports[i,0] = P[i]
-        box_width = prev_box_width
-        x_vec=P_ports[:,1]
-        y_vec=P_ports[:,2]
+        x_vec, y_vec, box_width_vec = pick_ports(img2, n_ports, cfg)
     else:
-        for i in range(0, nports):
-            this_box_width = box_width_vec[i]
-            x = x_vec[i]
-            y = y_vec[i]
-            subregion = img2[x-this_box_width:x+this_box_width, y-this_box_width:y+this_box_width]
-            P[i] = np.sum(subregion)
-        P_ports = np.array([P.transpose(), x_vec, y_vec])
+        x_vec, y_vec, box_width_vec = box_spec.T
+        n_ports = len(x_vec)
 
+    # calculate their powers
+    P_vec = []
+    for i in range(0, nports):
+        x = int(x_vec[i])
+        y = int(y_vec[i])
+        w = box_width_vec[i]
+        subregion = img2[x-w:x+w, y-w:y+w]
+        P_vec.append(np.sum(subregion))
+    P_ports = np.array([P_vec, x_vec, y_vec]).T
+
+    # Sort based on dimension of most position variance
     xvar=np.var(P_ports[:,1])
     yvar=np.var(P_ports[:,2])
     if xvar>yvar:
         P_ports=P_ports[P_ports[:,1].argsort()]
-        print("Detected that the ports should be sorted along the row index.  Proceeding with this assumption.")
+        print("Detected that the ports should be sorted along the row index. "
+              "Proceeding with this assumption.")
     else:
         P_ports=P_ports[P_ports[:,2].argsort()]
-        print("Detected that the ports should be sorted along the column index.  Proceeding with this assumption.")
+        print("Detected that the ports should be sorted along the column index. "
+              "Proceeding with this assumption.")
     P_norm=P_ports[:,0]/np.amax(P_ports[:,0])
 
 
     img2_scaled=img2/(math.pow(2,cfg.bit_depth_per_pixel)/16)
     font                   = cv2.FONT_HERSHEY_SIMPLEX
-    
     fontScale              = 0.3
     fontColor              = (1,1,1)
     lineType               = 1
     for i in range(0, nports): 
         #draw a rectangle surrounding each port to represent the integration window.
-        cv2.rectangle(img2_scaled, (int(P_ports[i,2]-box_width[i]), int(P_ports[i,1]-box_width[i])), (int(P_ports[i,2] + box_width[i]), int(P_ports[i,1]+box_width[i])), (32,32,32), 1)
+        cv2.rectangle(img2_scaled,
+                      (int(P_ports[i,2]-box_width_vec[i]), int(P_ports[i,1]-box_width_vec[i])),
+                      (int(P_ports[i,2] + box_width_vec[i]), int(P_ports[i,1]+box_width_vec[i])),
+                      (32,32,32), 1)
         
         annotation = "(#"+ str(i+1) +", " + "P: " +"{:.2f}".format(P_norm[i])+")"
         #if you want to include the row and column indices, tack this on to the annotation: +", " + str(P_ports[i,2]) + ", " + str(P_ports[i,1]) + 
         print(annotation)
 
         #put the annotation near but slightly offset from the port location
-        location = (int(P_ports[i,2]+box_width[i]),int(P_ports[i,1]-0.3*box_width[i]))
+        location = (int(P_ports[i,2]+box_width_vec[i]),int(P_ports[i,1]-0.3*box_width_vec[i]))
 
         cv2.putText(img2_scaled,
             annotation, 
@@ -326,7 +326,7 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
     #cv2.waitKey(0)
 
     
-    pout = {"Total Power": P_ports[:,0], "Normalized Power":P_norm, "x":P_ports[:,1], "y":P_ports[:,2], "box_width":box_width}
+    pout = {"Total Power": P_ports[:,0], "Normalized Power":P_norm, "x":P_ports[:,1], "y":P_ports[:,2], "box_width":box_width_vec}
     print("\n\nPress 0 to close the image and return the function")
     cv2.waitKey(0)
     cv2.destroyWindow("img2")

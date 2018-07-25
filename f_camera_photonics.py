@@ -15,39 +15,58 @@ import matplotlib.text
 import configparser as cp
 import os
 
-varargin = 0
+
+camera_photonics_directory = os.path.dirname(os.path.realpath(__file__))
+
+def get_all_config(configfile=None, **overrides):
+    ''' Default is config.ini - relative to this file's directory.
+        If specified, the file is relative to caller's working directory.
+    '''
+    if configfile is None:
+        configfile = os.path.join(camera_photonics_directory, 'config.ini')
+    configfile = os.path.realpath(configfile)
+
+    Config = cp.ConfigParser()
+    print(str(configfile))
+    Config.read(configfile)
+
+    class objectview(object): pass # allows thing.x rather than thing['x']
+
+    #collect the config file's data, put it in an objectclass objectview(object):
+    cfg = objectview()
+    cfg.col=Config.getint("camera_attributes","horizontal_resolution")
+    cfg.row=Config.getint("camera_attributes","vertical_resolution")
+    cfg.bit_depth_per_pixel=Config.getint("camera_attributes","bit_depth_per_pixel")
+    cfg.use_darkfield=Config.getboolean("camera_attributes","use_darkfield")
+    cfg.use_brightfield=Config.getboolean("camera_attributes","use_brightfield")
+    rel_darkfield_filename=Config.get("camera_attributes","darkfield_filename")
+    cfg.darkfield_filename=os.path.join(camera_photonics_directory, rel_darkfield_filename)
+    cfg.brightfield_filename=Config.get("camera_attributes","brightfield_filename")
+
+    cfg.use_blanking_box=Config.getboolean("signal_processing","use_blanking_box")
+    cfg.use_valid_box=Config.getboolean("signal_processing","use_valid_box")
+    cfg.box_width=Config.getint("signal_processing","box_width")
+    cfg.max_box_width=Config.getint("signal_processing","max_box_width")
+    cfg.min_residual=Config.getfloat("signal_processing","min_residual")
+    cfg.pixel_increment=Config.getint("signal_processing","pixel_increment")
+    cfg.default_nports=Config.getint("signal_processing","default_nports")
+    cfg.saturation_level_fraction=Config.getfloat("signal_processing","saturation_level_fraction")
+
+    cfg.__dict__.update(overrides)
+
+    return cfg
+
 
 def f_camera_photonics(filename, varargin = 0):
 
     #first, get the os-independent directories and filenames put together
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
-    prefix=os.getcwd()
-    Config = cp.ConfigParser()
-    configfile=os.path.realpath(prefix+"\\" +"config.ini")
-    print(str(configfile))
-    Config.read(configfile)
-    filename = os.path.realpath(prefix+"\\" + filename)
 
-    #collect the config file's data 
-    col=Config.getint("camera_attributes","horizontal_resolution")
-    row=Config.getint("camera_attributes","vertical_resolution")
-    bit_depth_per_pixel=Config.getint("camera_attributes","bit_depth_per_pixel")
-    use_darkfield=Config.getboolean("camera_attributes","use_darkfield")
-    use_brightfield=Config.getboolean("camera_attributes","use_brightfield")
-    darkfield_filename=Config.get("camera_attributes","darkfield_filename")
-    brightfield_filename=Config.get("camera_attributes","brightfield_filename")
-
-    use_blanking_box=Config.getboolean("signal_processing","use_blanking_box")
-    use_valid_box=Config.getboolean("signal_processing","use_valid_box")
-    box_width=Config.getint("signal_processing","box_width")
-    max_box_width=Config.getint("signal_processing","max_box_width")
-    min_residual=Config.getfloat("signal_processing","min_residual")
-    pixel_increment=Config.getint("signal_processing","pixel_increment")
-    default_nports=Config.getint("signal_processing","default_nports")
-    saturation_level_fraction=Config.getfloat("signal_processing","saturation_level_fraction")
+    cfg = get_all_config()
+    box_width = cfg.box_width  # temporary, because its used so much
 
     if varargin == 0:
-        nports = default_nports
+        nports = cfg.default_nports
         box = []
         x_set = []
         y_set = []
@@ -92,9 +111,8 @@ def f_camera_photonics(filename, varargin = 0):
     img = cv2.imread(filename,0)
     img_array = np.array(img)
 
-    if(use_darkfield is True):
-        darkfield_filename=os.path.realpath(prefix+"\\" +darkfield_filename)
-        img_darkfield=cv2.imread(darkfield_filename,-1)
+    if(cfg.use_darkfield is True):
+        img_darkfield=cv2.imread(cfg.darkfield_filename,-1)
         
 
     #open file as full 16 bit tiff image
@@ -127,7 +145,7 @@ def f_camera_photonics(filename, varargin = 0):
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     #If the user chooses to use a "blanking box", open an ROI selector and null out everything inside the ROI.
-    if use_blanking_box is True:
+    if cfg.use_blanking_box is True:
         print("\n\nSelect a region of pixels which you want to be zeroed out. Every pixel inside this box will be set to black. When you see the white box hit enter or space.")
         r = cv2.selectROI(windowName="Black out Region Selector", img=img_array)
         img_array = make_pixels_black(img_array, r,255)
@@ -135,7 +153,7 @@ def f_camera_photonics(filename, varargin = 0):
         cv2.destroyWindow("Black out region selector")
 
     #If the user chooses to use a "valid box", open an ROI selector and null out everything outside the ROI.
-    if use_valid_box is True:
+    if cfg.use_valid_box is True:
         print("\n\nSelect a valid region of pixels to look for all output ports.  Everywhere else will be zeroed out.")
         r = cv2.selectROI(windowName="Valid region selector", img=img_array)
         img_array = make_pixels_black(img_array, r,255)
@@ -148,7 +166,7 @@ def f_camera_photonics(filename, varargin = 0):
     #subtract darkfield (background) image from main data.
     img2=np.subtract(img2.astype(float),img_darkfield.astype(float))   
     img2[img2 < 0] = 0 # set all negative values to 0
-    print("The maximum value in the image after darkfield correction is: "+str(np.amax(img2)) +" (out of a camera limit of " +str(math.pow(2,bit_depth_per_pixel)-1)+")")
+    print("The maximum value in the image after darkfield correction is: "+str(np.amax(img2)) +" (out of a camera limit of " +str(math.pow(2, cfg.bit_depth_per_pixel)-1)+")")
 
 
     #/////////////////////////////////////////////////////////////////////////////////////////////
@@ -157,7 +175,7 @@ def f_camera_photonics(filename, varargin = 0):
     #/////////////////////////////////////////////////////////////////////////////////////////////
 
     
-    saturation_level=math.pow(2,bit_depth_per_pixel)*saturation_level_fraction #calculate the threshold for the saturation condition
+    saturation_level=math.pow(2,cfg.bit_depth_per_pixel)*cfg.saturation_level_fraction #calculate the threshold for the saturation condition
     maxval = np.amax(img2) #find max value in the entire image
 
     #check if saturation has occurred
@@ -172,8 +190,8 @@ def f_camera_photonics(filename, varargin = 0):
     figures = []
 
     if(len(box) <= 0): #if box exists
-        for i in range(box_width*2+1, row-box_width*2-pixel_increment, pixel_increment): #step by pixel increment
-            for j in range(box_width*2+1, col-box_width*2-pixel_increment, pixel_increment):
+        for i in range(box_width*2+1, cfg.row-box_width*2-cfg.pixel_increment, cfg.pixel_increment): #step by pixel increment
+            for j in range(box_width*2+1, cfg.col-box_width*2-cfg.pixel_increment, cfg.pixel_increment):
                 subregion = img2[i-box_width:i+box_width, j-box_width:j+box_width]
                 P = np.sum(subregion)
                 P_window.append([P, i, j])
@@ -210,7 +228,7 @@ def f_camera_photonics(filename, varargin = 0):
                 power_current = power_prev
                 r = box_width
                 residual=2
-                while((residual > min_residual) and (r < max_box_width)):
+                while((residual > cfg.min_residual) and (r < cfg.max_box_width)):
                     r = r+1
                     subregion = img2[int(x-r):int(x+r), int(y-r):int(y+r)]
                     power_current = np.sum(subregion)
@@ -271,7 +289,7 @@ def f_camera_photonics(filename, varargin = 0):
     P_norm=P_ports[:,0]/np.amax(P_ports[:,0])
 
 
-    img2_scaled=img2/(math.pow(2,bit_depth_per_pixel)/16)
+    img2_scaled=img2/(math.pow(2,cfg.bit_depth_per_pixel)/16)
     font                   = cv2.FONT_HERSHEY_SIMPLEX
     
     fontScale              = 0.3

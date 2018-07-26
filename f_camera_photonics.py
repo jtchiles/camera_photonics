@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import matplotlib.text
 import configparser as cp
 import os
-
+import json
 
 camera_photonics_directory = os.path.dirname(os.path.realpath(__file__))
 
@@ -273,7 +273,7 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
         w = box_width_vec[i]
         subregion = img2[x-w:x+w, y-w:y+w]
         P_vec.append(np.sum(subregion))
-    P_ports = np.array([P_vec, x_vec, y_vec]).T
+    P_ports = np.array([P_vec, x_vec, y_vec, box_width_vec]).T
 
     # Sort based on dimension of most position variance
     xvar=np.var(P_ports[:,1])
@@ -297,8 +297,8 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
     for i in range(0, nports): 
         #draw a rectangle surrounding each port to represent the integration window.
         cv2.rectangle(img2_scaled,
-                      (int(P_ports[i,2]-box_width_vec[i]), int(P_ports[i,1]-box_width_vec[i])),
-                      (int(P_ports[i,2] + box_width_vec[i]), int(P_ports[i,1]+box_width_vec[i])),
+                      (int(P_ports[i,2]-P_ports[i,3]), int(P_ports[i,1]-P_ports[i,3])),
+                      (int(P_ports[i,2] + P_ports[i,3]), int(P_ports[i,1]+P_ports[i,3])),
                       (32,32,32), 1)
         
         annotation = "(#"+ str(i+1) +", " + "P: " +"{:.2f}".format(P_norm[i])+")"
@@ -306,7 +306,7 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
         print(annotation)
 
         #put the annotation near but slightly offset from the port location
-        location = (int(P_ports[i,2]+box_width_vec[i]),int(P_ports[i,1]-0.3*box_width_vec[i]))
+        location = (int(P_ports[i,2]+P_ports[i,3]),int(P_ports[i,1]-0.3*P_ports[i,3]))
 
         cv2.putText(img2_scaled,
             annotation, 
@@ -322,27 +322,27 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
 
     #cv2.waitKey(0)
 
-    
-    pout = {"Total Power": P_ports[:,0], "Normalized Power":P_norm, "x":P_ports[:,1], "y":P_ports[:,2], "box_width":box_width_vec}
+    out_data = P_ports.T.tolist()
+    pout = {"Total Power": out_data[0],
+            "Normalized Power":P_norm.tolist(),
+            "x":out_data[1],
+            "y":out_data[2],
+            "box_width":out_data[3]}
     print("\n\nPress 0 to close the image and return the function")
     cv2.waitKey(0)
     cv2.destroyWindow("img2")
     return pout
 
 
-
 if(__name__ == "__main__"):
 #    filename = "grating1_TE_1310nm_300.tiff"
-    filename = "first_look-nolamp.tif"
+    if len(sys.argv) < 2:
+        filename = "first_look-nolamp.tif"
+    else:
+        filename = sys.argv[1]
 
     pout = f_camera_photonics(filename)
     print(pout)
-
-
-
-
-
-
 
 
 

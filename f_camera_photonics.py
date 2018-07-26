@@ -334,16 +334,29 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
     return pout
 
 
-if(__name__ == "__main__"):
-#    filename = "grating1_TE_1310nm_300.tiff"
-    if len(sys.argv) < 2:
-        filename = "first_look-nolamp.tif"
-    else:
-        filename = sys.argv[1]
+def save_output(some_dict, filename):
+    ''' Takes any dictionary. Makes the file human readable. '''
+    with open(filename, 'w') as fx:
+        json.dump(some_dict, fx, sort_keys=True, indent=4)
 
+
+def main(filename):
+    ''' Basically a wrapper for the f_camera_photonics algorithm, with saving '''
     pout = f_camera_photonics(filename)
-    print(pout)
 
+    json_filename = os.path.splitext(filename)[0] + '.json'
+    print('Saving to {}'.format(json_filename))
+    save_output(pout, json_filename)
+
+
+if(__name__ == "__main__"):
+    if len(sys.argv) < 2:
+        filenames = ["first_look-nolamp.tif"]
+    else:
+        filenames = sys.argv[1:]
+
+    for fn in filenames:
+        main(fn)
 
 
     #%%

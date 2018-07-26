@@ -341,6 +341,11 @@ def save_output(some_dict, filename):
         json.dump(some_dict, fx, sort_keys=True, indent=4)
 
 
+def load_output(filename):
+    with open(filename, 'r') as fx:
+        return json.load(fx)
+
+
 def main(filename, box_spec=None):
     ''' Basically a wrapper for the f_camera_photonics algorithm, with saving '''
     pout = f_camera_photonics(filename, box_spec)
@@ -349,12 +354,31 @@ def main(filename, box_spec=None):
     json_basename = os.path.splitext(base)[0] + '.json'
     print('Saving to {} in {}'.format(json_basename, directory))
     save_output(pout, os.path.join(directory, json_basename))
+    return pout
 
-def process_directory(pathname='', box_spec=None, glob='*[(.tif)(.tiff)]'):
-    pathpattern = os.path.join(pathname, glob)
+
+def process_directory(dirname='', box_spec=None, glob='*[(.tif)(.tiff)]', cleanup=True):
+    pathpattern = os.path.join(dirname, glob)
     for fn in iglob(pathpattern):
-        main(fn, box_spec)
+        filebase = os.path.splitext(os.path.basename(fn))[0]
+        pout = main(fn, box_spec)
+    consolidate_data(dirname)
+    if cleanup:
+        for fn in iglob(pathpattern):
+            os.remove(fn)
 
+
+def consolidate_data(dirname=''):
+    all_pout = dict()
+    pathpattern = os.path.join(dirname, '*.json')
+    for fn in iglob(pathpattern):
+        filebase = os.path.splitext(os.path.basename(fn))[0]
+        pout = load_output(fn)
+        all_pout[filebase] = pout
+    save_output(all_pout, os.path.join(dirname, 'all_data.json'))
+
+# todo: compare power data against something else in order to plot
+# todo: get something from the filename such as the index (named tuple type of deal?)
 
 if(__name__ == "__main__"):
     if len(sys.argv) < 2:

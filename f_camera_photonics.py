@@ -15,6 +15,7 @@ import matplotlib.text
 import configparser as cp
 import os
 import json
+from glob import iglob
 
 camera_photonics_directory = os.path.dirname(os.path.realpath(__file__))
 
@@ -340,13 +341,19 @@ def save_output(some_dict, filename):
         json.dump(some_dict, fx, sort_keys=True, indent=4)
 
 
-def main(filename):
+def main(filename, box_spec=None):
     ''' Basically a wrapper for the f_camera_photonics algorithm, with saving '''
-    pout = f_camera_photonics(filename)
+    pout = f_camera_photonics(filename, box_spec)
 
-    json_filename = os.path.splitext(filename)[0] + '.json'
-    print('Saving to {}'.format(json_filename))
-    save_output(pout, json_filename)
+    directory, base = os.path.split(filename)
+    json_basename = os.path.splitext(base)[0] + '.json'
+    print('Saving to {} in {}'.format(json_basename, directory))
+    save_output(pout, os.path.join(directory, json_basename))
+
+def process_directory(pathname='', box_spec=None, glob='*[(.tif)(.tiff)]'):
+    pathpattern = os.path.join(pathname, glob)
+    for fn in iglob(pathpattern):
+        main(fn, box_spec)
 
 
 if(__name__ == "__main__"):

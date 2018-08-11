@@ -185,7 +185,7 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
     else:
         x_vec = box_spec[:,0]
         y_vec = box_spec[:,1]
-        box_width_vec = box_spec[:,3]
+        box_width_vec = box_spec[:,2]
         nports = len(x_vec)
 
     #open file as array of uint8 for viewing and selecting
@@ -200,9 +200,9 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
     if(cfg.use_darkfield is True):
         img_darkfield=cv2.imread(cfg.darkfield_filename,-1)
 
-#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-#   IF THE IMAGE SHOWS ALL BLACK, SET THIS TO TRUE
+    #   IF THE IMAGE SHOWS ALL BLACK, SET THIS TO TRUE
     if True:
         img_8bit = scaled_img - np.min(scaled_img)
 
@@ -218,7 +218,7 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
         img_array = img_8bit
         plt.imshow(img_array)
 
-#++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     #If the user chooses to use a "blanking box", open an ROI selector and null out everything inside the ROI.
     if cfg.use_blanking_box is True:
@@ -231,6 +231,8 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
     #If the user chooses to use a "valid box", open an ROI selector and null out everything outside the ROI.
     if cfg.use_valid_box is True:
         print("\n\nSelect a valid region of pixels to look for all output ports.  Everywhere else will be zeroed out.")
+        win = cv2.namedWindow("Valid region selector", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("Valid region selector", 800, 600)
         r = cv2.selectROI(windowName="Valid region selector", img=img_array)
         img_array = make_pixels_black(img_array, r,255)
         img2_temp=img2
@@ -317,8 +319,12 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
             fontColor,
             lineType)
     #scale it up for readability
-    big=cv2.resize(img2_scaled, (0,0), fx=3, fy=3) 
-    cv2.imshow("img2",big)
+    big=cv2.resize(img2_scaled, (0,0), fx=3, fy=3)
+    # show only if not in batch mode
+    # if not cfg.use_valid_box:
+    cv2.namedWindow("result", cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("result", 800, 600)
+    cv2.imshow("result", big)
 
 
     #cv2.waitKey(0)
@@ -331,7 +337,8 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
             "box_width":out_data[3]}
     print("\n\nPress 0 to close the image and return the function")
     cv2.waitKey(0)
-    cv2.destroyWindow("img2")
+    # if not cfg.use_valid_box:
+    cv2.destroyWindow("result")
     return pout
 
 
@@ -357,15 +364,12 @@ def main(filename, box_spec=None):
     return pout
 
 
-def process_directory(dirname='', box_spec=None, glob='*[(.tif)(.tiff)]', cleanup=True):
+def process_directory(dirname='', box_spec=None, glob='*[(.tif)(.tiff)]'):
     pathpattern = os.path.join(dirname, glob)
     for fn in iglob(pathpattern):
         filebase = os.path.splitext(os.path.basename(fn))[0]
         pout = main(fn, box_spec)
     consolidate_data(dirname)
-    if cleanup:
-        for fn in iglob(pathpattern):
-            os.remove(fn)
 
 
 def consolidate_data(dirname=''):

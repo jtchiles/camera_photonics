@@ -177,6 +177,7 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
     #first, get the os-independent directories and filenames put together
     # os.chdir(os.path.dirname(os.path.realpath(__file__)))
     filename = os.path.realpath(filename)
+    filename_short = os.path.basename(filename)
 
     cfg = get_all_config(configfile)
 
@@ -231,14 +232,15 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
     #If the user chooses to use a "valid box", open an ROI selector and null out everything outside the ROI.
     if cfg.use_valid_box is True:
         print("\n\nSelect a valid region of pixels to look for all output ports.  Everywhere else will be zeroed out.")
-        win = cv2.namedWindow("Valid region selector", cv2.WINDOW_NORMAL)
-        cv2.resizeWindow("Valid region selector", 800, 600)
-        r = cv2.selectROI(windowName="Valid region selector", img=img_array)
+        windowName = filename_short + ' : Valid region selector'
+        win = cv2.namedWindow(windowName, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(windowName, 800, 600)
+        r = cv2.selectROI(windowName=windowName, img=img_array)
         img_array = make_pixels_black(img_array, r,255)
         img2_temp=img2
         img2_temp=img2_temp*0
         img2 = swap_pixel_data(img2_temp, img2,r)
-        cv2.destroyWindow("Valid region selector")
+        cv2.destroyWindow(windowName)
 
 
     #subtract darkfield (background) image from main data.
@@ -319,12 +321,11 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
             fontColor,
             lineType)
     #scale it up for readability
+    windowName = filename_short + ' : Peakfinder results'
     big=cv2.resize(img2_scaled, (0,0), fx=3, fy=3)
-    # show only if not in batch mode
-    # if not cfg.use_valid_box:
-    cv2.namedWindow("result", cv2.WINDOW_NORMAL)
-    cv2.resizeWindow("result", 800, 600)
-    cv2.imshow("result", big)
+    cv2.namedWindow(windowName, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(windowName, 800, 600)
+    cv2.imshow(windowName, big)
 
 
     #cv2.waitKey(0)
@@ -338,7 +339,7 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
     print("\n\nPress 0 to close the image and return the function")
     cv2.waitKey(0)
     # if not cfg.use_valid_box:
-    cv2.destroyWindow("result")
+    cv2.destroyWindow(windowName)
     return pout
 
 
@@ -363,6 +364,8 @@ def main(filename, box_spec=None):
     save_output(pout, os.path.join(directory, json_basename))
     return pout
 
+
+### Batch processing on directories ###
 
 def process_directory(dirname='', box_spec=None, glob='*[(.tif)(.tiff)]'):
     pathpattern = os.path.join(dirname, glob)

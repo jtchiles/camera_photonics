@@ -19,7 +19,7 @@ from glob import iglob
 
 camera_photonics_directory = os.path.dirname(os.path.realpath(__file__))
 
-def get_all_config(configfile=None, **overrides):
+def get_all_config(configfile=None, **config_overrides):
     ''' Default is config.ini - relative to this file's directory.
         If specified, the file is relative to caller's working directory.
     '''
@@ -54,7 +54,7 @@ def get_all_config(configfile=None, **overrides):
     cfg.default_nports=Config.getint("signal_processing","default_nports")
     cfg.saturation_level_fraction=Config.getfloat("signal_processing","saturation_level_fraction")
 
-    cfg.__dict__.update(overrides)
+    cfg.__dict__.update(config_overrides)
 
     return cfg
 
@@ -95,7 +95,7 @@ def pick_ports(image, nports, cfg):
     # convolution-like operation scanning around the image to find power
     P_window = []
     figures = []
-    window_centers = lambda pixels: range(cfg.kernel_width*2+1, 
+    window_centers = lambda pixels: range(cfg.kernel_width*2+1,
                                           pixels-cfg.kernel_width*2-cfg.pixel_increment,
                                           cfg.pixel_increment)
     for i in (window_centers(cfg.row)):
@@ -167,7 +167,7 @@ def pick_ports(image, nports, cfg):
 
 #### Main function
 
-def f_camera_photonics(filename, box_spec=None, configfile=None):
+def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overrides):
     ''' Not backwards compatible! - filename is now relative to user's directory.
 
         To skip the user interface, give box_spec.
@@ -179,7 +179,7 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
     filename = os.path.realpath(filename)
     filename_short = os.path.basename(filename)
 
-    cfg = get_all_config(configfile)
+    cfg = get_all_config(configfile, **config_overrides)
 
     if box_spec is None:
         nports = cfg.default_nports
@@ -244,7 +244,7 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
 
 
     #subtract darkfield (background) image from main data.
-    img2=np.subtract(img2.astype(float),img_darkfield.astype(float))   
+    img2=np.subtract(img2.astype(float),img_darkfield.astype(float))
     img2[img2 < 0] = 0 # set all negative values to 0
     print("The maximum value in the image after darkfield correction is: "+str(np.amax(img2)) +" (out of a camera limit of " +str(math.pow(2, cfg.bit_depth_per_pixel)-1)+")")
 
@@ -254,7 +254,7 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
     # At this point, any desired background and ROI corrections have been completed.
     #/////////////////////////////////////////////////////////////////////////////////////////////
 
-    
+
     saturation_level=math.pow(2,cfg.bit_depth_per_pixel)*cfg.saturation_level_fraction #calculate the threshold for the saturation condition
     maxval = np.amax(img2) #find max value in the entire image
 
@@ -299,24 +299,24 @@ def f_camera_photonics(filename, box_spec=None, configfile=None):
     fontScale              = 0.3
     fontColor              = (1,1,1)
     lineType               = 1
-    for i in range(0, nports): 
+    for i in range(0, nports):
         #draw a rectangle surrounding each port to represent the integration window.
         cv2.rectangle(img2_scaled,
                       (int(P_ports[i,2]-P_ports[i,3]), int(P_ports[i,1]-P_ports[i,3])),
                       (int(P_ports[i,2] + P_ports[i,3]), int(P_ports[i,1]+P_ports[i,3])),
                       (32,32,32), 1)
-        
+
         annotation = "(#"+ str(i+1) +", " + "P: " +"{:.2f}".format(P_norm[i])+")"
-        #if you want to include the row and column indices, tack this on to the annotation: +", " + str(P_ports[i,2]) + ", " + str(P_ports[i,1]) + 
+        #if you want to include the row and column indices, tack this on to the annotation: +", " + str(P_ports[i,2]) + ", " + str(P_ports[i,1]) +
         print(annotation)
 
         #put the annotation near but slightly offset from the port location
         location = (int(P_ports[i,2]+P_ports[i,3]),int(P_ports[i,1]-0.3*P_ports[i,3]))
 
         cv2.putText(img2_scaled,
-            annotation, 
-            location, 
-            font, 
+            annotation,
+            location,
+            font,
             fontScale,
             fontColor,
             lineType)
@@ -354,9 +354,9 @@ def load_output(filename):
         return json.load(fx)
 
 
-def main(filename, box_spec=None):
+def main(filename, box_spec=None, **config_overrides):
     ''' Basically a wrapper for the f_camera_photonics algorithm, with saving '''
-    pout = f_camera_photonics(filename, box_spec)
+    pout = f_camera_photonics(filename, box_spec=box_spec, **config_overrides)
 
     directory, base = os.path.split(filename)
     json_basename = os.path.splitext(base)[0] + '.json'

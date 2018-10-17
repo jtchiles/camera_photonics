@@ -38,16 +38,19 @@ def average(nframes=2):
 
 def show(cvimg):
     print('Press any key to close the display window')
-    cv2.imshow('img', camera_capture)
+    windowName = 'img'
+    big = cv2.resize(cvimg, (0,0), fx=3, fy=3)
+    cv2.namedWindow(windowName, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(windowName, 400, 300)
+    cv2.imshow(windowName, big)
     cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
+    cv2.destroyWindow(windowName)
 
 def save(cvimg, filename):
     ''' You can specify extension or not. Default in .png '''
     if '.' not in filename:
         filename += '.png'
-    cv2.imwrite(filename, camera_capture)
+    cv2.imwrite(filename, cvimg)
 
 
 if __name__ == '__main__':

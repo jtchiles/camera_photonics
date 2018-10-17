@@ -1,0 +1,5 @@
+__pycache__
+
+# this one is on the windows machine only for temporary stuff
+# in general, data should be saved in a different repo
+measurement_data

@@ -367,10 +367,18 @@ def main(filename, box_spec=None, **config_overrides):
 
 ### Batch processing on directories ###
 
-def process_directory(dirname='', box_spec=None, glob='*[(.tif)(.tiff)]'):
+def process_directory(dirname='', box_spec=None, new_only=False, glob='*[(.tif)(.tiff)]'):
     pathpattern = os.path.join(dirname, glob)
+    all_json_files = []
+    for fn in iglob('*.json'):
+        filebase = os.path.splitext(os.path.basename(fn))[0]
+        all_json_files.append(filebase)
     for fn in iglob(pathpattern):
         filebase = os.path.splitext(os.path.basename(fn))[0]
+        if new_only:
+            if filebase in all_json_files:
+                print('Not redoing', filebase)
+                continue
         pout = main(fn, box_spec)
     consolidate_data(dirname)
 
@@ -378,12 +386,23 @@ def process_directory(dirname='', box_spec=None, glob='*[(.tif)(.tiff)]'):
 def consolidate_data(dirname=''):
     all_pout = dict()
     pathpattern = os.path.join(dirname, '*.json')
-    os.remove(os.path.join(dirname, 'all_data.json'))
+    if os.path.exists(os.path.join(dirname, 'all_data.json')):
+        os.remove(os.path.join(dirname, 'all_data.json'))
     for fn in iglob(pathpattern):
         filebase = os.path.splitext(os.path.basename(fn))[0]
         pout = load_output(fn)
         all_pout[filebase] = pout
     save_output(all_pout, os.path.join(dirname, 'all_data.json'))
+
+
+def fix_tiff_range(filename=''):
+    if os.path.isdir(filename):
+        for file in iglob('*[(.tif)(.tiff)]'):
+            fix_tiff_range(file)
+    else:
+        img = cv2.imread(filename, 0)
+        new_filename = os.path.splitext(filename)[0] + '_proc.tif'
+        cv2.imwrite(new_filename, 16 * img)
 
 
 ### File naming convention ###

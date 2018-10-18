@@ -11,7 +11,6 @@ from component_capture import single_shot, video_mean
 _available_commands = dict()
 _raw_returners = set()
 def tcp_command(json_codec=True):
-    @wraps(func)
     def tcp_register(func):
         global _available_commands
         global _raw_returners
@@ -27,8 +26,8 @@ def ping():
     return 'Hello there'
 
 @tcp_command(json_codec=False)
-def capture(nframes=1):
-    img = single_shot()
+def capture(avgcnt=1):
+    img = video_mean(avgcnt)
     img_serial = cv2.imencode('.png', img)[1].tobytes()
     return img_serial
 

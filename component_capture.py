@@ -37,5 +37,10 @@ def video_mean(nframes=2):
 
 
 if __name__ == '__main__':
-    from f_camera_photonics import cvshow
-    cvshow(single_shot())
+	print('Called')
+	from f_camera_photonics import cvshow
+	print('Taking pic')
+	img = single_shot()
+	print('Displaying')
+	cvshow(img)
+	print('Complete')

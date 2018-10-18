@@ -1,5 +1,6 @@
 import zmq
-import socket
+from socket import getfqdn
+import json
 
 from component_capture import single_shot, video_mean
 
@@ -17,7 +18,7 @@ def ping():
 
 @tcp_command
 def capture(nframes=1):
-
+    pass
 
 ## command and control layer.
 # Converts between arg/kwarg-like objects and TCP messages.
@@ -48,7 +49,7 @@ def run_server(port=5555):
     context = zmq.Context()
     socket = context.socket(zmq.REP)
     print('Starting camera photonics server')
-    print('FQDN =', socket.getfqdn())
+    print('FQDN =', getfqdn())
     print('PORT =', port)
     socket.bind("tcp://*:{}".format(port))  # * means localhost
 
@@ -66,7 +67,6 @@ def remote_call(cmd_name, *args, address='686NAM3560B.campus.nist.gov', port=555
     socket.send(pack_command(cmd_name, *args, **kwargs))
     return unpack_response(socket.recv())
 
-
-remote_cap = lambda: remote_call(capture)
-
+if __name__ == '__main__':
+	run_server()
 

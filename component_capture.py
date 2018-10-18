@@ -31,7 +31,7 @@ def single_shot():
     return get_frames(1)[0]
 
 
-def average(nframes=2):
+def video_mean(nframes=2):
     stack = np.array(get_frames(nframes))
     return np.mean(stack, axis=2)
 

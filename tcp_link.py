@@ -18,7 +18,9 @@ def ping():
 
 @tcp_command
 def capture(nframes=1):
-    pass
+    img = single_shot()
+    img_serial = cv2.imencode('.png', img)[1].tobytes()
+    return img_serial
 
 @tcp_command
 def kill():
@@ -34,7 +36,7 @@ def pack_command(cmd_name, *args, **kwargs):
     if type(cmd_name) is not str:
         cmd_name = cmd_name.__name__
     if cmd_name not in _available_commands.keys():
-        raise KeyError('No command named{}'.format(cmd_name))
+        raise KeyError('No command named {}'.format(cmd_name))
     command_struct = (cmd_name, args, kwargs)
     return json.dumps(command_struct).encode()
 

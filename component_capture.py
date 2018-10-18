@@ -36,23 +36,6 @@ def average(nframes=2):
     return np.mean(stack, axis=2)
 
 
-def show(cvimg):
-    print('Press any key to close the display window')
-    windowName = 'img'
-    big = cv2.resize(cvimg, (0,0), fx=3, fy=3)
-    cv2.namedWindow(windowName, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(windowName, 400, 300)
-    cv2.imshow(windowName, big)
-    cv2.waitKey(0)
-    cv2.destroyWindow(windowName)
-
-def save(cvimg, filename):
-    ''' You can specify extension or not. Default in .png '''
-    if '.' not in filename:
-        filename += '.png'
-    cv2.imwrite(filename, cvimg)
-
-
 if __name__ == '__main__':
-    cvimg = get_frames()[0]
-    show(cvimg)
+    from f_camera_photonics import cvshow
+    cvshow(single_shot())

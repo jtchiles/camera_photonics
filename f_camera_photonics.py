@@ -320,15 +320,6 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
             fontScale,
             fontColor,
             lineType)
-    #scale it up for readability
-    windowName = filename_short + ' : Peakfinder results'
-    big=cv2.resize(img2_scaled, (0,0), fx=3, fy=3)
-    cv2.namedWindow(windowName, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(windowName, 800, 600)
-    cv2.imshow(windowName, big)
-
-
-    #cv2.waitKey(0)
 
     out_data = P_ports.T.tolist()
     pout = {"Total Power": out_data[0],
@@ -336,10 +327,9 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
             "x":out_data[1],
             "y":out_data[2],
             "box_width":out_data[3]}
-    print("\n\nPress 0 to close the image and return the function")
-    cv2.waitKey(0)
-    # if not cfg.use_valid_box:
-    cv2.destroyWindow(windowName)
+
+    windowName = filename_short + ' : Peakfinder results'
+    cvshow(big, windowName=windowName)
     return pout
 
 
@@ -363,6 +353,18 @@ def main(filename, box_spec=None, **config_overrides):
     print('Saving to {} in {}'.format(json_basename, directory))
     save_output(pout, os.path.join(directory, json_basename))
     return pout
+
+
+### CV2 convenience ###
+def cvshow(cvimg, windowName='img'):
+    ''' Convenience of window sizing, cleanup, etc '''
+    print('Press any key to close the display window')
+    big = cv2.resize(cvimg, (0,0), fx=3, fy=3)
+    cv2.namedWindow(windowName, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(windowName, 400, 300)
+    cv2.imshow(windowName, big)
+    cv2.waitKey(0)
+    cv2.destroyWindow(windowName)
 
 
 ### Batch processing on directories ###

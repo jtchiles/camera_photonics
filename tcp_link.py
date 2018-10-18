@@ -1,6 +1,7 @@
 import zmq
 from socket import getfqdn
 import json
+from types import FunctionType
 
 from component_capture import single_shot, video_mean
 
@@ -33,7 +34,7 @@ def kill():
 # Calls the server-side functions
 
 def pack_command(cmd_name, *args, **kwargs):
-    if type(cmd_name) is not str:
+    if type(cmd_name) is FunctionType:
         cmd_name = cmd_name.__name__
     if cmd_name not in _available_commands.keys():
         raise KeyError('No command named {}'.format(cmd_name))
@@ -73,8 +74,11 @@ def remote_call(cmd_name, *args, address='686NAM3560B.campus.nist.gov', port=555
     socket.connect('tcp://{}:{}'.format(address, port))
 
     socket.send(pack_command(cmd_name, *args, **kwargs))
-    if cmd_name != 'kill' and cmd_name.__name__ != 'kill':
-        return unpack_response(socket.recv())
+    if (type(cmd_name) is FunctionType and cmd_name.__name__ == 'kill'
+            or type(cmd_name) is str and cmd_name == 'kill'):
+        return None
+    else:
+        return (socket.recv())
 
 if __name__ == '__main__':
 	run_server()

@@ -1,5 +1,7 @@
 from tcp_link import remote_call
 from f_camera_photonics import cvshow
+import numpy as np
+import cv2
 
 img_str = remote_call('capture')
 nparr = np.fromstring(img_str, np.uint8)

@@ -46,7 +46,7 @@ def pack_image(img_array):
     return img_serial
 
 def unpack_image(img_serial):
-    nparr = np.frombytes(img_serial, np.uint8)
+    nparr = np.fromstring(img_serial, np.uint8)
     img_array = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     return img_array
 

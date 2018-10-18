@@ -20,6 +20,12 @@ def ping():
 def capture(nframes=1):
     pass
 
+@tcp_command
+def kill():
+    ''' Windows doesn't like keyboard interrupts '''
+    raise RuntimeError('Remote server kill')
+
+
 ## command and control layer.
 # Converts between arg/kwarg-like objects and TCP messages.
 # Calls the server-side functions
@@ -27,15 +33,14 @@ def capture(nframes=1):
 def pack_command(cmd_name, *args, **kwargs):
     if type(cmd_name) is not str:
         cmd_name = cmd_name.__name__
+    if cmd_name not in _available_commands.keys():
+        raise KeyError('No command named{}'.format(cmd_name))
     command_struct = (cmd_name, args, kwargs)
     return json.dumps(command_struct).encode()
 
 def parse_command(msg_bytes):
     cmd_name, args, kwargs = json.loads(msg_bytes.decode())
-    try:
-        func = _available_commands[cmd_name]
-    except KeyError:
-        resp = 'Error: no command named {}'.format(cmd_name)
+    func = _available_commands[cmd_name]
     resp = func(*args, **kwargs)
     return json.dumps(resp).encode()
 
@@ -59,13 +64,15 @@ def run_server(port=5555):
         response = parse_command(message)
         socket.send(response)
 
+
 def remote_call(cmd_name, *args, address='686NAM3560B.campus.nist.gov', port=5555, **kwargs):
     context = zmq.Context()
     socket = context.socket(zmq.REQ)
     socket.connect('tcp://{}:{}'.format(address, port))
 
     socket.send(pack_command(cmd_name, *args, **kwargs))
-    return unpack_response(socket.recv())
+    if cmd_name != 'kill' and cmd_name.__name__ != 'kill':
+        return unpack_response(socket.recv())
 
 if __name__ == '__main__':
 	run_server()

@@ -4,6 +4,7 @@ import json
 from types import FunctionType
 import cv2
 from functools import wraps
+import numpy as np
 
 from component_capture import single_shot, video_mean
 
@@ -28,8 +29,7 @@ def ping():
 @tcp_command(json_codec=False)
 def capture(avgcnt=1):
     img = video_mean(avgcnt)
-    img_serial = cv2.imencode('.png', img)[1].tobytes()
-    return img_serial
+    return pack_image(img)
 
 @tcp_command()
 def kill():
@@ -40,6 +40,15 @@ def kill():
 ## command and control layer.
 # Converts between arg/kwarg-like objects and TCP messages.
 # Calls the server-side functions
+
+def pack_image(img_array):
+    img_serial = cv2.imencode('.png', img_array)[1].tobytes()
+    return img_serial
+
+def unpack_image(img_serial):
+    nparr = np.frombytes(img_serial, np.uint8)
+    img_array = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    return img_array
 
 def pack_command(cmd_name, *args, **kwargs):
     if type(cmd_name) is FunctionType:

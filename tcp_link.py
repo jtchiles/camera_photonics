@@ -1,28 +1,35 @@
 import zmq
 from socket import getfqdn
 import json
+import cv2
+from functools import wraps
 
 from component_capture import single_shot, video_mean
 
 # Commands are tokened by the name of the function
 _available_commands = dict()
-def tcp_command(func):
-    global _available_commands
-    _available_commands[func.__name__] = func
-    return func
+_raw_returners = set()
+def tcp_command(json_codec=True):
+    def tcp_register(func):
+        global _available_commands
+        _available_commands[func.__name__] = func
+        if not json_codec:
+            _raw_returners.add(func.__name__)
+        return func
+    return tcp_register
 
 
-@tcp_command
+@tcp_command()
 def ping():
     return 'Hello there'
 
-@tcp_command
+@tcp_command(json_codec=False)
 def capture(nframes=1):
     img = single_shot()
     img_serial = cv2.imencode('.png', img)[1].tobytes()
     return img_serial
 
-@tcp_command
+@tcp_command()
 def kill():
     ''' Windows doesn't like keyboard interrupts '''
     raise RuntimeError('Remote server kill')
@@ -44,7 +51,10 @@ def parse_command(msg_bytes):
     cmd_name, args, kwargs = json.loads(msg_bytes.decode())
     func = _available_commands[cmd_name]
     resp = func(*args, **kwargs)
-    return json.dumps(resp).encode()
+    if cmd_name in raw_returners:
+        return resp
+    else:
+        return json.dumps(resp).encode()
 
 def unpack_response(resp_bytes):
     return json.loads(resp_bytes.decode())

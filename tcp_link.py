@@ -14,6 +14,7 @@ def tcp_command(json_codec=True):
     @wraps(func)
     def tcp_register(func):
         global _available_commands
+        global _raw_returners
         _available_commands[func.__name__] = func
         if not json_codec:
             _raw_returners.add(func.__name__)
@@ -53,7 +54,7 @@ def parse_command(msg_bytes):
     cmd_name, args, kwargs = json.loads(msg_bytes.decode())
     func = _available_commands[cmd_name]
     resp = func(*args, **kwargs)
-    if cmd_name in raw_returners:
+    if cmd_name in _raw_returners:
         return resp
     else:
         return json.dumps(resp).encode()
@@ -84,12 +85,16 @@ def remote_call(cmd_name, *args, address='686NAM3560B.campus.nist.gov', port=555
     socket = context.socket(zmq.REQ)
     socket.connect('tcp://{}:{}'.format(address, port))
 
+    if type(cmd_name) is FunctionType:
+        cmd_name = cmd_name.__name__
+
     socket.send(pack_command(cmd_name, *args, **kwargs))
-    if (type(cmd_name) is FunctionType and cmd_name.__name__ == 'kill'
-            or type(cmd_name) is str and cmd_name == 'kill'):
+    if cmd_name == 'kill':
         return None
+    elif cmd_name in _raw_returners:
+        return socket.recv()
     else:
-        return (socket.recv())
+        return unpack_response(socket.recv())
 
 if __name__ == '__main__':
 	run_server()

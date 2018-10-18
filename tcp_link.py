@@ -28,7 +28,7 @@ def pack_command(cmd_name, *args, **kwargs):
     if type(cmd_name) is not str:
         cmd_name = cmd_name.__name__
     command_struct = (cmd_name, args, kwargs)
-    return json.dumps(command_struct)
+    return json.dumps(command_struct).encode()
 
 def parse_command(msg_bytes):
     cmd_name, args, kwargs = json.loads(msg_bytes.decode())
@@ -37,7 +37,7 @@ def parse_command(msg_bytes):
     except KeyError:
         resp = 'Error: no command named {}'.format(cmd_name)
     resp = func(*args, **kwargs)
-    return json.dumps(resp) # bytes?
+    return json.dumps(resp).encode()
 
 def unpack_response(resp_bytes):
     return json.loads(resp_bytes.decode())

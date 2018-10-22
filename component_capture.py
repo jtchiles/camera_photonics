@@ -2,6 +2,7 @@
 import cv2
 import os
 from contextlib import contextmanager
+import numpy as np
 
 camera_port = 0
 
@@ -14,7 +15,7 @@ def open_camera():
 
 ## Low level conditioning
 # Number of frames to throw away while the camera adjusts to light levels
-ramp_frames = 30
+ramp_frames = 10
 
 def get_frames(nframes=1):
     with open_camera() as camera:
@@ -33,7 +34,7 @@ def single_shot():
 
 def video_mean(nframes=2):
     stack = np.array(get_frames(nframes))
-    return np.mean(stack, axis=2)
+    return np.mean(stack, axis=0)
 
 
 if __name__ == '__main__':

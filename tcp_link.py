@@ -94,7 +94,7 @@ def run_server(port=None):
         socket.send(response)
 
 
-def remote_call(cmd_name, *args, address=None, port=None, **kwargs):
+def remote_call(cmd_name, address=None, port=None, **kwargs):
     if address is None:
         address = remote_address_default
     if port is None:
@@ -116,5 +116,5 @@ def remote_call(cmd_name, *args, address=None, port=None, **kwargs):
         return unpack_response(socket.recv())
 
 if __name__ == '__main__':
-	run_server()
+    run_server()
 

@@ -8,6 +8,10 @@ import numpy as np
 
 from component_capture import single_shot, video_mean
 
+remote_address_default = '686NAM3560B.campus.nist.gov'
+remote_port_default = 5551
+
+
 # Commands are tokened by the name of the function
 _available_commands = dict()
 _raw_returners = set()
@@ -73,7 +77,9 @@ def unpack_response(resp_bytes):
 
 ## Process layer
 
-def run_server(port=5555):
+def run_server(port=None):
+    if port is None:
+        port = remote_port_default
     context = zmq.Context()
     socket = context.socket(zmq.REP)
     print('Starting camera photonics server')
@@ -88,7 +94,12 @@ def run_server(port=5555):
         socket.send(response)
 
 
-def remote_call(cmd_name, *args, address='686NAM3560B.campus.nist.gov', port=5555, **kwargs):
+def remote_call(cmd_name, *args, address=None, port=None, **kwargs):
+    if address is None:
+        address = remote_address_default
+    if port is None:
+        port = remote_port_default
+
     context = zmq.Context()
     socket = context.socket(zmq.REQ)
     socket.connect('tcp://{}:{}'.format(address, port))

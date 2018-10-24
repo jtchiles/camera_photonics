@@ -178,6 +178,8 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
     # os.chdir(os.path.dirname(os.path.realpath(__file__)))
     filename = os.path.realpath(filename)
     filename_short = os.path.basename(filename)
+    if os.path.splitext(filename)[1] == '.json':
+        raise IOError('It looks like to are trying to apply image processing to a json file')
 
     cfg = get_all_config(configfile, **config_overrides)
 
@@ -311,7 +313,13 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
         print(annotation)
 
         #put the annotation near but slightly offset from the port location
-        location = (int(P_ports[i,2]+P_ports[i,3]),int(P_ports[i,1]-0.3*P_ports[i,3]))
+        side_sign = int(2 * (i % 2 - .5))
+        if i % 2 == 0:
+            text_offset = P_ports[i, 3]
+        else:
+            text_offset = - P_ports[i, 3] - 6 * len(annotation)
+        location = (int(P_ports[i, 2] + text_offset),
+                    int(P_ports[i, 1] - 0.3 * P_ports[i, 3]))
 
         cv2.putText(img2_scaled,
             annotation,

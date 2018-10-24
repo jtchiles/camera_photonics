@@ -187,8 +187,7 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
         x_vec = box_spec[:,0]
         y_vec = box_spec[:,1]
         box_width_vec = box_spec[:,2]
-        nports = len(box_spec[:,0])
-
+        nports = len(x_vec)
 
     #open file as array of uint8 for viewing and selecting
     img = cv2.imread(filename,0)
@@ -265,11 +264,11 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
 
     # find the gratings/ports
     if box_spec is None:
-        box_spec = np.array(pick_ports(img2, cfg.default_nports, cfg)).T
-    box_spec.dtype = int
-    x_vec, y_vec, box_width_vec = box_spec.T
-    n_ports = len(x_vec)
-    print('Box spec is', box_spec)
+        n_ports = cfg.default_nports
+        x_vec, y_vec, box_width_vec = pick_ports(img2, n_ports, cfg)
+    else:
+        x_vec, y_vec, box_width_vec = box_spec.T
+        n_ports = len(x_vec)
 
     # calculate their powers
     P_vec = []

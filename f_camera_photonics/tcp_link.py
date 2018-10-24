@@ -6,7 +6,7 @@ import cv2
 from functools import wraps
 import numpy as np
 
-from component_capture import single_shot, video_mean
+from f_camera_photonics.component_capture import single_shot, video_mean
 
 remote_address_default = '686NAM3560B.campus.nist.gov'
 remote_port_default = 5551

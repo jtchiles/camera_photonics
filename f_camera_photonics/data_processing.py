@@ -3,6 +3,8 @@ from glob import iglob
 import numpy as np
 import matplotlib.pyplot as plt
 
+from f_camera_photonics.peak_finder import main
+
 
 ### Batch processing on directories ###
 

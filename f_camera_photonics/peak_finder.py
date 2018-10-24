@@ -329,7 +329,7 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
             "box_width":out_data[3]}
 
     windowName = filename_short + ' : Peakfinder results'
-    cvshow(big, windowName=windowName)
+    cvshow(img2_scaled, windowName=windowName)
     return pout
 
 

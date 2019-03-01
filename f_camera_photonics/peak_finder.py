@@ -342,14 +342,24 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
 
 
 def save_output(some_dict, filename):
-    ''' Takes any dictionary. Makes the file human readable. '''
+    ''' Takes any dictionary. Makes the file human readable.
+        Converts np.ndarray to list first (disabled)
+    '''
+    # for k, dat in some_dict.items():
+    #     if isinstance(dat, np.ndarray):
+    #         some_dict[k] = list(dat)
     with open(filename, 'w') as fx:
         json.dump(some_dict, fx, sort_keys=True, indent=4)
 
 
 def load_output(filename):
+    ''' Converts all lists to np.ndarrays after loading (disabled) '''
     with open(filename, 'r') as fx:
-        return json.load(fx)
+        data_dict = json.load(fx)
+    # for k, dat in data_dict.items():
+    #     if isinstance(dat, (list, tuple)):
+    #         data_dict[k] = np.array(dat)
+    return data_dict
 
 
 def main(filename, box_spec=None, **config_overrides):

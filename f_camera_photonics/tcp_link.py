@@ -107,6 +107,7 @@ def remote_call(cmd_name, address=None, port=None, **kwargs):
     if type(cmd_name) is FunctionType:
         cmd_name = cmd_name.__name__
 
+    args = ()
     socket.send(pack_command(cmd_name, *args, **kwargs))
     if cmd_name == 'kill':
         return None

@@ -3,12 +3,12 @@ from glob import iglob
 import numpy as np
 import matplotlib.pyplot as plt
 
-from f_camera_photonics.peak_finder import main, load_output
+from f_camera_photonics.peak_finder import main, load_output, save_output
 
 
 ### Batch processing on directories ###
 
-def process_directory(dirname='', box_spec=None, new_only=False, glob='*[(.tif)(.tiff)]'):
+def process_directory(dirname='', box_spec=None, new_only=False, glob='*[(.tif)(.tiff)]', **config_overrides):
     pathpattern = os.path.join(dirname, glob)
     all_json_files = []
     for fn in iglob('*.json'):
@@ -20,7 +20,7 @@ def process_directory(dirname='', box_spec=None, new_only=False, glob='*[(.tif)(
             if filebase in all_json_files:
                 print('Not redoing', filebase)
                 continue
-        pout = main(fn, box_spec)
+        pout = main(fn, box_spec, **config_overrides)
     consolidate_data(dirname)
 
 

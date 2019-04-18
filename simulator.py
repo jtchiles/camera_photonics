@@ -78,8 +78,8 @@ class SimulatedEnvironment:
         x, y = fiber_pos
         x0 = 107
         y0 = 96
-        gamma = 1
-        window = 10
+        gamma = 10
+        window = 500
         u, v = np.meshgrid(np.arange(window), np.arange(window))
         r = math.sqrt((x-x0)**2 +(y-y0)**2)
         A = math.exp(-(r/(2*gamma))**2)
@@ -92,9 +92,11 @@ class SimulatedEnvironment:
             q.append( np.sqrt((u-u0)**2 +(v-v0)**2))
             q_gaus.append(z * np.exp(-(q[i]/(2*gamma))**2))
             p = p + q_gaus[i]
-        print(p)
+        # print(p)
         cv2.imshow("ing", p)
-        key = cv2.waitKeyEx()
+        cv2.waitKey(0)
+        cv2.destroyWindow('ing')
+        # key = cv2.waitKeyEx()
         return p
 
     def prob_1 (self, n, peaks):
@@ -204,7 +206,7 @@ if __name__ == '__main__':
     '''To run intensity problems'''
     #imgs = ['SUWG01_01-20dB.tif','SUWG01_01-13dB.tif','SUWG01_01-10dB.tif', 'SUWG01_01-0dB.tif']
     attin = [0.01, 0.05, 0.1, 1]
-    peaks = [(9,216), (22,216), (35,214), (48,214), (63,211), (75,211), (89,208), (103, 208), (116,205), (129,205), (143, 202), (156, 202), (169, 199), (183, 198), (197, 194), (210,194)]
+    peaks = [(22,216), (129,205), (210,194)]
 
     #sim.prob_1(0, peaks)
     sim.prob_2(attin, peaks)

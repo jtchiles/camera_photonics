@@ -78,8 +78,9 @@ class SimulatedEnvironment:
         x, y = fiber_pos
         x0 = 107
         y0 = 96
-        gamma = 10
-        u, v = np.meshgrid(np.arange(gamma), np.arange(gamma))
+        gamma = 1
+        window = 10
+        u, v = np.meshgrid(np.arange(window), np.arange(window))
         r = math.sqrt((x-x0)**2 +(y-y0)**2)
         A = math.exp(-(r/(2*gamma))**2)
         z = b * A
@@ -91,7 +92,6 @@ class SimulatedEnvironment:
             q.append( np.sqrt((u-u0)**2 +(v-v0)**2))
             q_gaus.append(z * np.exp(-(q[i]/(2*gamma))**2))
             p = p + q_gaus[i]
-            #print(type(p))
         print(p)
         cv2.imshow("ing", p)
         key = cv2.waitKeyEx()

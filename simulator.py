@@ -93,9 +93,11 @@ class SimulatedEnvironment:
             q_gaus.append(z * np.exp(-(q[i]/(2*gamma))**2))
             p = p + q_gaus[i]
         # print(p)
-        cv2.imshow("ing", p)
-        cv2.waitKey(0)
-        cv2.destroyWindow('ing')
+        plt.pcolor(p)
+        plt.show()
+        # cv2.imshow("ing", p)
+        # cv2.waitKey(0)
+        # cv2.destroyWindow('ing')
         # key = cv2.waitKeyEx()
         return p
 

@@ -74,6 +74,24 @@ class SimulatedEnvironment:
         cv2.imshow('image', new_img)
         cv2.waitKeyEx()
 
+
+    #todo: look at this
+    def peak_finder(p, u, v, gamma):
+        i,j = np.argmax(p)
+        max_p = np.max(p)
+        thresh = 1
+        while max_p < thresh:
+            u_0 = u(i,j)
+            v_0 = v(i,j)
+            q =  np.sqrt((u-u_0)**2 +(v-v_0)**2)
+            rho = q < gamma
+            #p = np.where(q<gamma)[p < gamma] = 0
+            p[rho] = 0
+            i,j = np.argmax(p)
+            max_p = np.max(p)
+
+        return (u(i,j), v(i,j))
+
     def intensity(self, peaks, fiber_pos, b):
         x, y = fiber_pos
         x0 = 107
@@ -92,13 +110,9 @@ class SimulatedEnvironment:
             q.append( np.sqrt((u-u0)**2 +(v-v0)**2))
             q_gaus.append(z * np.exp(-(q[i]/(2*gamma))**2))
             p = p + q_gaus[i]
-        # print(p)
         plt.pcolor(p)
         plt.show()
-        # cv2.imshow("ing", p)
-        # cv2.waitKey(0)
-        # cv2.destroyWindow('ing')
-        # key = cv2.waitKeyEx()
+        #print(np.max(p))
         return p
 
     def prob_1 (self, n, peaks):
@@ -155,8 +169,7 @@ class SimulatedEnvironment:
 
     def create_light(self,img):
         light_img = img.copy()
-        peaks = [(9,216), (22,216)]
-        #(35,214), (48,214), (63,211), (75,211), (89,208), (103, 208), (116,205), (129,205), (143, 202), (156, 202), (169, 199), (183, 198), (197, 194), (210, 194)]
+        peaks = [(9,216), (22,216),(35,214), (48,214), (63,211), (75,211), (89,208), (103, 208), (116,205), (129,205), (143, 202), (156, 202), (169, 199), (183, 198), (197, 194), (210, 194)]
         for i in range(len(peaks)):
             y, x = peaks[i]
             light_img = cv2.circle(light_img,(x,y),2,(0,255,255),2)

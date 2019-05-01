@@ -3,6 +3,7 @@ import cv2
 import sys
 import math
 import matplotlib.pyplot as plt
+from f_camera_photonics.peak_finder import cvshow
 
 class SimulatedEnvironment:
     ## Finds peaks ##
@@ -174,6 +175,7 @@ class SimulatedEnvironment:
             y, x = peaks[i]
             light_img = cv2.circle(light_img,(x,y),2,(0,255,255),2)
         return light_img
+
     def is_pos_correct(self, x, y):
          if (x in range(93,99)) and (y in range(104,110)):
              return True
@@ -186,7 +188,7 @@ class SimulatedEnvironment:
         new_img = self.move(x, y, img)
         # Hard coded key strokes (WASD)
         while True:
-            print(x, y)
+            # print(x, y)
             if self.is_pos_correct(x, y):
                 new_img = self.move(x, y, img)
                 new_img = self.create_light(new_img)
@@ -194,6 +196,7 @@ class SimulatedEnvironment:
             cv2.imshow('image', new_img)
             key = cv2.waitKeyEx()
             # Up/W = 119
+            print(key)
             if (key == 119):
                 y-=1
                 new_img = self.move(x, y, img)
@@ -213,6 +216,101 @@ class SimulatedEnvironment:
             if (key == 32):
                 break
 
+
+class DynDevice(object):
+    in_gc_pos = None
+    out_gc_list = None  # a list of tuples: (position, intensity)
+    background = None
+
+    def __init__(self):
+        self.in_gc_pos = np.array(50, 100)
+        self.out_gc_list = [(np.array(150, 75), .5),
+                            (np.array(150, 125), 1)]
+        self.background = cv2.imread(file_lamp, 0)
+
+
+
+class SimEnviron2(object):
+    device = None
+    atten = None
+    fiber_pos = None
+
+    def __init__(self, device, size=200):
+        self.size = size
+        self.device = device
+        self.atten = 0
+        self.fiber_pos = np.array([0, 0])
+
+    def move_fiber_by(dx, dy):
+        self.fiber_pos += np.array([dx, dy])
+
+    def move_fiber_to(x, y):
+        self.fiber_pos = np.array([x, y])
+
+    def set_atten_lin(att):
+        self.atten = att
+
+    def snap():
+        # returns an image just like the one you get from the camera
+        frame = self.device.background
+        # how far off is the fiber from in_gc? – get a factor
+        # what is attenuation – get a factor
+        # what are port factors - list of factors
+        # get gaussian frames, add to frame
+        return frame
+
+    def interactive():
+        # run the loop like key_control
+        # listen for WASD and number keys
+        while True:
+            keycode = cv2.waitKeyEx()
+            try:
+                keyval = keyboard[keycode]
+            except KeyError:
+                continue
+            if isinstance(keyval, str):
+                if keyval == 'W':
+                    self.fiber_pos[1] += 1
+                elif keyval == 'S':
+                    self.fiber_pos[1] -= 1
+                elif keyval == 'A':
+                    self.fiber_pos[0] -= 1
+                elif keyval == 'D':
+                    self.fiber_pos[0] += 1
+                elif keyval == 'Space':
+                    break
+            elif isinstance(keyval, int):
+                self.atten = float(keyval) / 9.0
+
+
+keyboard = {119: 'W', 97: 'A', 115: 'S', 100: 'D'} # movement
+keyboard[32] = 'Space' # exit
+for i in range(10):  # attenuation
+    keyboard[i + 48] = i
+
+class Runner(object):
+    def __init__(self, simulator):
+        self.sim = simulator
+
+    def hdr_peaks(): pass
+
+    def autoalign(): pass
+
+    @staticmethod
+    def _pick_peaks(diff_img, threshold=.5):
+        # descend from top until hitting threshold
+        pass
+
+    def locate_peaks():
+        # turns attenuation on and off, differences, finds peaks
+        self.sim.set_atten_lin(1)
+        img_on = self.sim.snap()
+        self.sim.set_atten_lin(0)
+        img_off = self.sim.snap()
+        img_diff = img_on - img_off
+        return _pick_peaks(img_diff)
+
+
 if __name__ == '__main__':
     sim = SimulatedEnvironment()
 
@@ -224,12 +322,12 @@ if __name__ == '__main__':
     attin = [0.01, 0.05, 0.1, 1]
     peaks = [(22,216), (129,205), (210,194)]
 
-    #sim.prob_1(0, peaks)
-    sim.prob_2(attin, peaks)
+    # sim.prob_1(0, peaks)
+    # sim.prob_2(attin, peaks)
 
     #SUWG01_01-lamp.tif
     '''To run the fiber simulator'''
-    #if len(sys.argv) > 1:
-    #    sim.key_control(str(sys.argv[1]))
+    if len(sys.argv) > 1:
+       sim.key_control(str(sys.argv[1]))
 
 

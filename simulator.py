@@ -217,17 +217,52 @@ class SimulatedEnvironment:
                 break
 
 
+
+size = (200, 200)
+def get_domain():
+    # returns arrays representing x, y at every grid point, depending on size
+    u = np.arange(size[0])
+    v = np.arange(size[1])
+    U, V = np.meshgrid(v, u)
+    return U, V
+
+
+peak_fwhm = 5
+def gauss(distance, fwhm=peak_fwhm):
+    sigma = fwhm / 2 / np.sqrt(2 * np.log(2))
+    return np.exp(- (distance ** 2 / 2 / sigma ** 2))
+
+
+def gauss_mesh(center, fwhm=peak_fwhm):
+    U, V = get_domain()
+    du = U - center[0]
+    dv = V - center[1]
+    R = np.sqrt(du ** 2 + dv ** 2)
+    return gauss(R, fwhm=fwhm)
+
+
+def to_uint(arr):
+    # 1.0 gets mapped to 2^16-1
+    new_arr = np.copy(arr)
+    new_arr *= 2 ** 16
+    return new_arr.astype('uint16')
+
+
 class DynDevice(object):
     in_gc_pos = None
     out_gc_list = None  # a list of tuples: (position, intensity)
     background = None
 
-    def __init__(self):
-        self.in_gc_pos = np.array(50, 100)
-        self.out_gc_list = [(np.array(150, 75), .5),
-                            (np.array(150, 125), 1)]
-        self.background = cv2.imread(file_lamp, 0)
-
+    def __init__(self, background=None):
+        self.in_gc_pos = np.array([50, 100])
+        self.out_gc_list = [(np.array([150, 75]), .5),
+                            (np.array([150, 125]), 1)]
+        global size
+        if background is None:
+            self.background = np.zeros(size)
+        else:
+            self.background = background
+            size = np.shape(self.background)
 
 
 class SimEnviron2(object):
@@ -235,34 +270,43 @@ class SimEnviron2(object):
     atten = None
     fiber_pos = None
 
-    def __init__(self, device, size=200):
-        self.size = size
+    def __init__(self, device):
         self.device = device
-        self.atten = 0
-        self.fiber_pos = np.array([0, 0])
+        self.atten = 1
+        self.fiber_pos = np.array([50, 100])
 
-    def move_fiber_by(dx, dy):
+    def move_fiber_by(self, dx, dy):
         self.fiber_pos += np.array([dx, dy])
 
-    def move_fiber_to(x, y):
+    def move_fiber_to(self, x, y):
         self.fiber_pos = np.array([x, y])
 
-    def set_atten_lin(att):
+    def set_atten_lin(self, att):
         self.atten = att
 
-    def snap():
+    def snap(self):
         # returns an image just like the one you get from the camera
-        frame = self.device.background
+        frame = self.device.background.copy()
+        # input fiber spot
+        fiber_spot = self.atten * gauss_mesh(center=self.fiber_pos)
+        frame += fiber_spot
+
         # how far off is the fiber from in_gc? – get a factor
-        # what is attenuation – get a factor
+        # dfiber = self.fiber_pos - self.device.in_gc_pos
+        # alignment_factor = gauss(np.sqrt(np.sum(dfiber ** 2)))
+
         # what are port factors - list of factors
         # get gaussian frames, add to frame
+        # clip it
+        frame = np.clip(frame, 0, 1)
         return frame
 
-    def interactive():
+    def interactive(self):
         # run the loop like key_control
         # listen for WASD and number keys
         while True:
+            # new_img = cv2.circle(self.snap(), tuple(self.fiber_pos), 8, (255,0,0), 2)
+            cv2.imshow('Spacebar to Exit', self.snap())
             keycode = cv2.waitKeyEx()
             try:
                 keyval = keyboard[keycode]
@@ -270,9 +314,9 @@ class SimEnviron2(object):
                 continue
             if isinstance(keyval, str):
                 if keyval == 'W':
-                    self.fiber_pos[1] += 1
-                elif keyval == 'S':
                     self.fiber_pos[1] -= 1
+                elif keyval == 'S':
+                    self.fiber_pos[1] += 1
                 elif keyval == 'A':
                     self.fiber_pos[0] -= 1
                 elif keyval == 'D':
@@ -287,6 +331,7 @@ keyboard = {119: 'W', 97: 'A', 115: 'S', 100: 'D'} # movement
 keyboard[32] = 'Space' # exit
 for i in range(10):  # attenuation
     keyboard[i + 48] = i
+
 
 class Runner(object):
     def __init__(self, simulator):
@@ -312,22 +357,31 @@ class Runner(object):
 
 
 if __name__ == '__main__':
-    sim = SimulatedEnvironment()
+    # OLD
+    # sim = SimulatedEnvironment()
 
-    '''To run the peak finder'''
-    #peaks = sim.set_peaks('SUWG01_01-lamp.tif', 'SUWG01_01-0dB.tif')
+    # '''To run the peak finder'''
+    # #peaks = sim.set_peaks('SUWG01_01-lamp.tif', 'SUWG01_01-0dB.tif')
 
-    '''To run intensity problems'''
-    #imgs = ['SUWG01_01-20dB.tif','SUWG01_01-13dB.tif','SUWG01_01-10dB.tif', 'SUWG01_01-0dB.tif']
-    attin = [0.01, 0.05, 0.1, 1]
-    peaks = [(22,216), (129,205), (210,194)]
+    # '''To run intensity problems'''
+    # #imgs = ['SUWG01_01-20dB.tif','SUWG01_01-13dB.tif','SUWG01_01-10dB.tif', 'SUWG01_01-0dB.tif']
+    # attin = [0.01, 0.05, 0.1, 1]
+    # peaks = [(22,216), (129,205), (210,194)]
 
-    # sim.prob_1(0, peaks)
-    # sim.prob_2(attin, peaks)
+    # # sim.prob_1(0, peaks)
+    # # sim.prob_2(attin, peaks)
 
-    #SUWG01_01-lamp.tif
-    '''To run the fiber simulator'''
-    if len(sys.argv) > 1:
-       sim.key_control(str(sys.argv[1]))
+    # #SUWG01_01-lamp.tif
+    # '''To run the fiber simulator'''
+    # if len(sys.argv) > 1:
+    #    sim.key_control(str(sys.argv[1]))
+
+
+    # NEW
+    bg = cv2.imread('example_image.tif', -1).astype('float')
+    bg /= 2 ** 12
+    dev = DynDevice(background=bg)
+    sim = SimEnviron2(dev)
+    sim.interactive()
 
 

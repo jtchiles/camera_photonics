@@ -248,15 +248,20 @@ def to_uint(arr):
     return new_arr.astype('uint16')
 
 
+bases = np.array([215, 7])
+diff = np.array([-1.5, 13.5])
+gcs = []
+for iPort in range(16):
+    gcs.append((bases + iPort * diff, 3 if iPort % 2 == 0 else np.exp(-iPort/10)))
+
 class DynDevice(object):
     in_gc_pos = None
     out_gc_list = None  # a list of tuples: (position, intensity)
     background = None
 
     def __init__(self, background=None):
-        self.in_gc_pos = np.array([50, 100])
-        self.out_gc_list = [(np.array([150, 75]), .5),
-                            (np.array([150, 125]), 1)]
+        self.in_gc_pos = np.array([100, 108])
+        self.out_gc_list = gcs
         global size
         if background is None:
             self.background = np.zeros(size)
@@ -273,7 +278,7 @@ class SimEnviron2(object):
     def __init__(self, device):
         self.device = device
         self.atten = 1
-        self.fiber_pos = np.array([50, 100])
+        self.fiber_pos = np.array([100, 108])
 
     def move_fiber_by(self, dx, dy):
         self.fiber_pos += np.array([dx, dy])
@@ -288,25 +293,35 @@ class SimEnviron2(object):
         # returns an image just like the one you get from the camera
         frame = self.device.background.copy()
         # input fiber spot
-        fiber_spot = self.atten * gauss_mesh(center=self.fiber_pos)
-        frame += fiber_spot
+        frame += self.atten * gauss_mesh(center=self.fiber_pos)
 
         # how far off is the fiber from in_gc? – get a factor
-        # dfiber = self.fiber_pos - self.device.in_gc_pos
-        # alignment_factor = gauss(np.sqrt(np.sum(dfiber ** 2)))
+        dfiber = self.fiber_pos - self.device.in_gc_pos
+        alignment_factor = gauss(np.sqrt(np.sum(dfiber ** 2)))
 
         # what are port factors - list of factors
-        # get gaussian frames, add to frame
+        for port_pos, port_intensity in self.device.out_gc_list:
+            port_spot = gauss_mesh(center=port_pos)
+            port_spot *= self.atten * alignment_factor * port_intensity
+            frame += port_spot
         # clip it
         frame = np.clip(frame, 0, 1)
         return frame
+
+    def show(self):
+        cvimg = self.snap()
+        big = cv2.resize(cvimg, (0,0), fx=3, fy=3)
+        windowName = 'img'
+        cv2.namedWindow(windowName, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(windowName, 700, 700)
+        cv2.imshow(windowName, big)
 
     def interactive(self):
         # run the loop like key_control
         # listen for WASD and number keys
         while True:
             # new_img = cv2.circle(self.snap(), tuple(self.fiber_pos), 8, (255,0,0), 2)
-            cv2.imshow('Spacebar to Exit', self.snap())
+            self.show()
             keycode = cv2.waitKeyEx()
             try:
                 keyval = keyboard[keycode]
@@ -346,13 +361,33 @@ class Runner(object):
         # descend from top until hitting threshold
         pass
 
-    def locate_peaks():
-        # turns attenuation on and off, differences, finds peaks
-        self.sim.set_atten_lin(1)
-        img_on = self.sim.snap()
+    def adjust_range(self):
         self.sim.set_atten_lin(0)
         img_off = self.sim.snap()
-        img_diff = img_on - img_off
+        atten_bounds = [0, 1]
+        prev_max = 0
+        for _ in range(100):
+            this_atten = np.mean(atten_bounds)
+            self.sim.set_atten_lin(this_atten)
+            img_diff = self.sim.snap() - img_off
+            this_max = np.max(img_diff)
+            if abs(this_max - prev_max) < .01:
+                break
+            elif this_max > 0.99:
+                atten_bounds[1] = this_atten
+            elif this_max < 0.9:
+                atten_bounds[0] = this_atten
+            else:
+                break
+            prev_max = this_max
+            print(this_atten, '-', np.max(img_diff))
+            cvshow(img_diff)
+        return this_atten
+
+    def locate_peaks(self):
+        # turns attenuation on and off, differences, finds peaks
+        best_atten = self.adjust_range()
+        self.sim.set_atten_lin(best_atten)
         return _pick_peaks(img_diff)
 
 
@@ -377,11 +412,15 @@ if __name__ == '__main__':
     #    sim.key_control(str(sys.argv[1]))
 
 
-    # NEW
     bg = cv2.imread('example_image.tif', -1).astype('float')
     bg /= 2 ** 12
     dev = DynDevice(background=bg)
     sim = SimEnviron2(dev)
+
+    # NEW interactive
     sim.interactive()
 
+    runner = Runner(sim)
+    # NEW diff plot
+    runner.locate_peaks()
 

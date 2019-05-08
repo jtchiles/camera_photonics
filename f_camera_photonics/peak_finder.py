@@ -19,6 +19,8 @@ from glob import iglob
 
 camera_photonics_directory = os.path.dirname(os.path.realpath(__file__))
 
+class objectview(object): pass # allows thing.x rather than thing['x']
+
 def get_all_config(configfile=None, **config_overrides):
     ''' Default is config.ini - relative to this file's directory.
         If specified, the file is relative to caller's working directory.
@@ -30,8 +32,6 @@ def get_all_config(configfile=None, **config_overrides):
     Config = cp.ConfigParser()
     print(str(configfile))
     Config.read(configfile)
-
-    class objectview(object): pass # allows thing.x rather than thing['x']
 
     #collect the config file's data, put it in an objectclass objectview(object):
     cfg = objectview()
@@ -91,8 +91,13 @@ def calculate_pixel_mean(img, dimensions):
     return pixel_avg
 
 
-def pick_ports(image, nports, cfg):
-    # convolution-like operation scanning around the image to find power
+def pick_ports(image, nports, cfg=None):
+    ''' The main peakfinding algorithm.
+        convolution-like operation scanning around the image to find power.
+    '''
+    if cfg is None:
+        cfg = get_all_config()
+
     P_window = []
     figures = []
     window_centers = lambda pixels: range(cfg.kernel_width*2+1,
@@ -165,6 +170,32 @@ def pick_ports(image, nports, cfg):
     return x_vec, y_vec, box_width_vec
 
 
+class PortArray(object):
+    ''' Handles sorting. No connection with image, but it can be fed an image to get powers at those points.
+        You can get the port info by index, or you can get the vectors: x_vec, y_vec, r_vec, P_vec, Pnorm_vec
+    '''
+    def __init__(self):
+        self.x_vec = []
+        self.y_vec = []
+        self.r_vec = []
+        self.P_vec = []
+        self.Pnorm_vec = []
+        super().__init__()
+
+    def __len__(self):
+        return len(self.x_vec)
+
+    def sort_by(self, keytype):
+        '''
+            keytype can be 'x', 'y', 'position', 'P'
+            where 'position' is equivalent to 'x' or 'y' depending on which one varies the most.
+        '''
+        pass
+
+    def calc_powers(self, image):
+        pass
+
+
 #### Main function
 
 def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overrides):
@@ -182,14 +213,6 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
         raise IOError('It looks like to are trying to apply image processing to a json file')
 
     cfg = get_all_config(configfile, **config_overrides)
-
-    if box_spec is None:
-        nports = cfg.default_nports
-    else:
-        x_vec = box_spec[:,0]
-        y_vec = box_spec[:,1]
-        box_width_vec = box_spec[:,2]
-        nports = len(x_vec)
 
     #open file as array of uint8 for viewing and selecting
     img = cv2.imread(filename,0)

@@ -3,7 +3,7 @@ import cv2
 import sys
 import math
 import matplotlib.pyplot as plt
-from f_camera_photonics.peak_finder import cvshow
+from f_camera_photonics.peak_finder import cvshow, pick_ports
 
 class SimulatedEnvironment:
     ## Finds peaks ##
@@ -359,7 +359,8 @@ class Runner(object):
     @staticmethod
     def _pick_peaks(diff_img, threshold=.5):
         # descend from top until hitting threshold
-        pass
+        # hard coded: the number of bright reference ports (8)
+        X = pick_ports(diff_img, nports=8, None)
 
     def adjust_range(self):
         self.sim.set_atten_lin(0)

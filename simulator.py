@@ -308,20 +308,17 @@ class SimEnviron2(object):
         frame = np.clip(frame, 0, 1)
         return frame
 
-    def show(self):
+    def show(self, mouse_callback=None):
         cvimg = self.snap()
-        big = cv2.resize(cvimg, (0,0), fx=3, fy=3)
-        windowName = 'img'
-        cv2.namedWindow(windowName, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(windowName, 700, 700)
-        cv2.imshow(windowName, big)
+        better_show(cvimg, mouse_callback)
 
     def interactive(self):
         # run the loop like key_control
         # listen for WASD and number keys
         while True:
             # new_img = cv2.circle(self.snap(), tuple(self.fiber_pos), 8, (255,0,0), 2)
-            self.show()
+            # self.show(circle_follow)
+            self.show(lambda w, i: array_follow(w, i, np.array([644,20]), 8))
             keycode = cv2.waitKeyEx()
             try:
                 keyval = keyboard[keycode]
@@ -340,6 +337,58 @@ class SimEnviron2(object):
                     break
             elif isinstance(keyval, int):
                 self.atten = float(keyval) / 9.0
+
+# These are mouse callbacks
+selection_data = None
+def circle_follow(windowName, img):
+    def circle_follow_inner(event, x, y, flags, param):
+        global selection_data
+        if selection_data is not None:
+            x, y = selection_data
+        if event == cv2.EVENT_MOUSEMOVE:
+            img_copy = img.copy()
+            center = (x, y)
+            cv2.circle(img_copy, center, 20, (255, 0, 0), 2)
+            cv2.imshow(windowName, img_copy)
+        elif event == cv2.EVENT_LBUTTONUP:
+            print('Point is picked', x, y)
+            selection_data = (x, y)
+            # cv2.destroyWindow(windowName)
+    return circle_follow_inner
+
+
+def array_follow(windowName, img, anchor_coord, nports):
+    def array_follow_inner(event, x, y, flags, param):
+        global selection_data
+        if selection_data is not None:
+            x, y = selection_data
+        if event == cv2.EVENT_MOUSEMOVE:
+            img_copy = img.copy()
+            center = (x, y)
+            dxdy = np.subtract(center, anchor_coord) / (nports - 1)
+            for iPort in range(nports):
+                this_coord = tuple((anchor_coord + iPort * dxdy).astype(int))
+                cv2.circle(img_copy, this_coord, 20, (255, 0, 0), 2)
+            cv2.imshow(windowName, img_copy)
+        elif event == cv2.EVENT_LBUTTONUP:
+            print('Point is picked', x, y)
+            selection_data = (x, y)
+            # cv2.destroyWindow(windowName)
+    return array_follow_inner
+
+
+def better_show(cvimg, windowName='img', mouse_callback=None):
+    global selection_data
+    big = cv2.resize(cvimg, (0,0), fx=3, fy=3)
+    cv2.namedWindow(windowName, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(windowName, 700, 700)
+    if mouse_callback is not None:
+        print('Callback has been set')
+        cv2.setMouseCallback(windowName, mouse_callback(windowName, big))
+    selection_data = None
+    cv2.imshow(windowName, big)
+    cv2.waitKey(0)
+    cv2.destroyWindow(windowName)
 
 
 keyboard = {119: 'W', 97: 'A', 115: 'S', 100: 'D'} # movement
@@ -360,7 +409,7 @@ class Runner(object):
     def _pick_peaks(diff_img, threshold=.5):
         # descend from top until hitting threshold
         # hard coded: the number of bright reference ports (8)
-        X = pick_ports(diff_img, nports=8, None)
+        X = pick_ports(diff_img, nports=8, cfg=None)
 
     def adjust_range(self):
         self.sim.set_atten_lin(0)
@@ -391,6 +440,21 @@ class Runner(object):
         self.sim.set_atten_lin(best_atten)
         return _pick_peaks(img_diff)
 
+    def interactive(self):
+        self.sim.set_atten_lin(0)
+        img_off = self.sim.snap()
+        self.sim.set_atten_lin(1)
+        img_on = self.sim.snap()
+        img_diff = img_on - img_off
+        # Present the user with the peak picking step
+        better_show(img_diff, 'Click the first port', mouse_callback=circle_follow)
+        port1 = selection_data
+        nports = 8
+        better_show(img_diff, mouse_callback=lambda w, i: array_follow(w, i, port1, nports))
+        port8 = selection_data
+        dxdy = np.subtract(port8, port1) / (nports - 1)
+        # Now do the port structures
+
 
 if __name__ == '__main__':
     # OLD
@@ -419,9 +483,9 @@ if __name__ == '__main__':
     sim = SimEnviron2(dev)
 
     # NEW interactive
-    sim.interactive()
+    # sim.interactive()
 
     runner = Runner(sim)
     # NEW diff plot
-    runner.locate_peaks()
+    runner.interactive()
 

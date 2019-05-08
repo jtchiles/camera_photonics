@@ -172,18 +172,36 @@ def pick_ports(image, nports, cfg=None):
 
 class PortArray(object):
     ''' Handles sorting. No connection with image, but it can be fed an image to get powers at those points.
-        You can get the port info by index, or you can get the vectors: x_vec, y_vec, r_vec, P_vec, Pnorm_vec
+        You can get the port info by index, or you can get the vectors: x_vec, y_vec, w_vec, P_vec, Pnorm_vec.
+        x, y, and w are stored as floats
     '''
+    default_sort = 'x'
+
     def __init__(self):
-        self.x_vec = []
-        self.y_vec = []
-        self.r_vec = []
-        self.P_vec = []
-        self.Pnorm_vec = []
-        super().__init__()
+        self.x_vec = np.array([])
+        self.y_vec = np.array([])
+        self.w_vec = np.array([])
+        self.P_vec = None
 
     def __len__(self):
         return len(self.x_vec)
+
+    @property
+    def Pnorm_vec(self):
+        return self.P_vec / np.max(self.P_vec)
+
+    def calc_powers(self, image):
+        ''' Looks at the port positions within the given image '''
+        x_ints = self.x_vec.astype(int)
+
+        P_vec = []
+        for i in range(0, nports):
+            x = int(x_vec[i])
+            y = int(y_vec[i])
+            w = box_width_vec[i]
+            subregion = img2[x-w:x+w, y-w:y+w]
+            P_vec.append(np.sum(subregion))
+        P_ports = np.array([P_vec, x_vec, y_vec, box_width_vec]).T
 
     def sort_by(self, keytype):
         '''
@@ -192,8 +210,19 @@ class PortArray(object):
         '''
         pass
 
-    def calc_powers(self, image):
-        pass
+        # Sort based on dimension of most position variance
+        xvar=np.var(P_ports[:,1])
+        yvar=np.var(P_ports[:,2])
+        if xvar>yvar:
+            P_ports=P_ports[P_ports[:,1].argsort()]
+            print("Detected that the ports should be sorted along the row index. "
+                  "Proceeding with this assumption.")
+        else:
+            P_ports=P_ports[P_ports[:,2].argsort()]
+            print("Detected that the ports should be sorted along the column index. "
+                  "Proceeding with this assumption.")
+        P_norm=P_ports[:,0]/np.amax(P_ports[:,0])
+
 
 
 #### Main function
@@ -294,29 +323,6 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
     else:
         x_vec, y_vec, box_width_vec = box_spec.T
         n_ports = len(x_vec)
-
-    # calculate their powers
-    P_vec = []
-    for i in range(0, nports):
-        x = int(x_vec[i])
-        y = int(y_vec[i])
-        w = box_width_vec[i]
-        subregion = img2[x-w:x+w, y-w:y+w]
-        P_vec.append(np.sum(subregion))
-    P_ports = np.array([P_vec, x_vec, y_vec, box_width_vec]).T
-
-    # Sort based on dimension of most position variance
-    xvar=np.var(P_ports[:,1])
-    yvar=np.var(P_ports[:,2])
-    if xvar>yvar:
-        P_ports=P_ports[P_ports[:,1].argsort()]
-        print("Detected that the ports should be sorted along the row index. "
-              "Proceeding with this assumption.")
-    else:
-        P_ports=P_ports[P_ports[:,2].argsort()]
-        print("Detected that the ports should be sorted along the column index. "
-              "Proceeding with this assumption.")
-    P_norm=P_ports[:,0]/np.amax(P_ports[:,0])
 
 
     img2_scaled=img2/(math.pow(2,cfg.bit_depth_per_pixel)/16)

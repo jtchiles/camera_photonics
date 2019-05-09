@@ -7,6 +7,7 @@ from functools import wraps
 import numpy as np
 
 from f_camera_photonics.component_capture import single_shot, video_mean
+from f_camera_photonics.attenuator_driver import atten_db
 
 remote_address_default = '686NAM3560B.campus.nist.gov'
 remote_port_default = 5551
@@ -39,6 +40,10 @@ def capture(avgcnt=1):
 def kill():
     ''' Windows doesn't like keyboard interrupts '''
     raise RuntimeError('Remote server kill')
+
+@tcp_command()
+def attenuate(atten=None):
+    return atten_db(atten)
 
 
 ## command and control layer.

@@ -3,7 +3,7 @@ import cv2
 import sys
 import math
 import matplotlib.pyplot as plt
-from f_camera_photonics.peak_finder import cvshow, pick_ports
+from f_camera_photonics.peak_finder import cvshow, pick_ports, PortArray
 
 class SimulatedEnvironment:
     ## Finds peaks ##
@@ -348,10 +348,11 @@ def circle_follow(windowName, img):
         if event == cv2.EVENT_MOUSEMOVE:
             img_copy = img.copy()
             center = (x, y)
-            cv2.circle(img_copy, center, 20, (255, 0, 0), 2)
+            cv2.circle(img_copy, center, 7, (255, 0, 0), 1)
             cv2.imshow(windowName, img_copy)
         elif event == cv2.EVENT_LBUTTONUP:
             print('Point is picked', x, y)
+            print('Press any key')
             selection_data = (x, y)
             # cv2.destroyWindow(windowName)
     return circle_follow_inner
@@ -368,10 +369,11 @@ def array_follow(windowName, img, anchor_coord, nports):
             dxdy = np.subtract(center, anchor_coord) / (nports - 1)
             for iPort in range(nports):
                 this_coord = tuple((anchor_coord + iPort * dxdy).astype(int))
-                cv2.circle(img_copy, this_coord, 20, (255, 0, 0), 2)
+                cv2.circle(img_copy, this_coord, 7, (255, 0, 0), 1)
             cv2.imshow(windowName, img_copy)
         elif event == cv2.EVENT_LBUTTONUP:
             print('Point is picked', x, y)
+            print('Press any key')
             selection_data = (x, y)
             # cv2.destroyWindow(windowName)
     return array_follow_inner
@@ -379,14 +381,14 @@ def array_follow(windowName, img, anchor_coord, nports):
 
 def better_show(cvimg, windowName='img', mouse_callback=None):
     global selection_data
-    big = cv2.resize(cvimg, (0,0), fx=3, fy=3)
+    # big = cv2.resize(cvimg, (0,0), fx=3, fy=3)
     cv2.namedWindow(windowName, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(windowName, 700, 700)
     if mouse_callback is not None:
         print('Callback has been set')
-        cv2.setMouseCallback(windowName, mouse_callback(windowName, big))
+        cv2.setMouseCallback(windowName, mouse_callback(windowName, cvimg))
     selection_data = None
-    cv2.imshow(windowName, big)
+    cv2.imshow(windowName, cvimg)
     cv2.waitKey(0)
     cv2.destroyWindow(windowName)
 
@@ -441,19 +443,43 @@ class Runner(object):
         return _pick_peaks(img_diff)
 
     def interactive(self):
+        # remove the background
         self.sim.set_atten_lin(0)
         img_off = self.sim.snap()
         self.sim.set_atten_lin(1)
         img_on = self.sim.snap()
         img_diff = img_on - img_off
         # Present the user with the peak picking step
-        better_show(img_diff, 'Click the first port', mouse_callback=circle_follow)
-        port1 = selection_data
         nports = 8
-        better_show(img_diff, mouse_callback=lambda w, i: array_follow(w, i, port1, nports))
-        port8 = selection_data
+        if False:
+            better_show(img_diff, 'Click the first port', mouse_callback=circle_follow)
+            port1 = selection_data
+            better_show(img_diff, 'Click the last port', mouse_callback=lambda w, i: array_follow(w, i, port1, nports))
+            port8 = selection_data
+        else:
+            port1 = (216, 7)
+            port8 = (195, 196)
         dxdy = np.subtract(port8, port1) / (nports - 1)
         # Now do the port structures
+        ref_ports = PortArray()
+        test_ports = PortArray()
+        for iPortPair in range(nports):
+            this_refport = np.array(port1) + np.array(dxdy) * iPortPair
+            ref_ports.add_port(this_refport[0], this_refport[1])
+            test_ports.add_port(this_refport[0] + dxdy[0]/2, this_refport[1] + dxdy[1]/2)
+        # Measure vs attenuation
+        # attendb_arr = [-30, -20, -10, -3, 0]
+        atten_arr = np.linspace(1e-3, 1, 9)
+        ref_powers = np.zeros((nports, len(atten_arr)))
+        test_powers = np.zeros((nports, len(atten_arr)))
+        for iAtten, atten in enumerate(atten_arr):
+            self.sim.set_atten_lin(10 ** (atten / 10))
+            image = self.sim.snap() - img_off
+            ref_powers[:, iAtten] = ref_ports.calc_powers(image)
+            test_powers[:, iAtten] = test_ports.calc_powers(image)
+        import pdb; pdb.set_trace()
+        plt.plot(atten_arr, ref_powers[-1, :])
+        plt.show()
 
 
 if __name__ == '__main__':

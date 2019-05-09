@@ -175,53 +175,83 @@ class PortArray(object):
         You can get the port info by index, or you can get the vectors: x_vec, y_vec, w_vec, P_vec, Pnorm_vec.
         x, y, and w are stored as floats
     '''
-    default_sort = 'x'
+    default_sortkey = 'position'
 
     def __init__(self):
         self.x_vec = np.array([])
         self.y_vec = np.array([])
         self.w_vec = np.array([])
-        self.P_vec = None
+        self._P_vec = None
 
     def __len__(self):
         return len(self.x_vec)
 
+    def __getitem__(self, index):
+        ret_array = np.array([self.x_vec[index], self.y_vec[index], self.w_vec[index], 0])
+        if self.P_vec is not None:
+            ret_array[-1] = self.P_vec[index]
+        return ret_array
+
+    def add_port(self, x, y, w=15):
+        ''' at the end, it also resorts this object by the default '''
+        self.x_vec = np.append(self.x_vec, x)
+        self.y_vec = np.append(self.y_vec, y)
+        self.w_vec = np.append(self.w_vec, w)
+        self.sort_by()
+
+    @property
+    def P_vec(self):
+        if self._P_vec is None:
+            raise AttributeError('Power has not yet been measured')
+        return self._P_vec
+
     @property
     def Pnorm_vec(self):
+        if np.max(self.P_vec) == 0:
+            print('Cannot normalize powers because they are all zero')
+            return self.P_vec
         return self.P_vec / np.max(self.P_vec)
 
     def calc_powers(self, image):
         ''' Looks at the port positions within the given image '''
-        x_ints = self.x_vec.astype(int)
+        self._P_vec = np.zeros(len(self))
+        for iPort in range(len(self)):
+            x = int(self.x_vec[iPort])
+            y = int(self.y_vec[iPort])
+            w = int(self.w_vec[iPort])
+            subregion = image[x-w:x+w, y-w:y+w]
+            self._P_vec[iPort] = np.sum(subregion)
+        return self.P_vec
 
-        P_vec = []
-        for i in range(0, nports):
-            x = int(x_vec[i])
-            y = int(y_vec[i])
-            w = box_width_vec[i]
-            subregion = img2[x-w:x+w, y-w:y+w]
-            P_vec.append(np.sum(subregion))
-        P_ports = np.array([P_vec, x_vec, y_vec, box_width_vec]).T
-
-    def sort_by(self, keytype):
+    def sort_by(self, keytype=None):
         '''
             keytype can be 'x', 'y', 'position', 'P'
             where 'position' is equivalent to 'x' or 'y' depending on which one varies the most.
         '''
-        pass
-
-        # Sort based on dimension of most position variance
-        xvar=np.var(P_ports[:,1])
-        yvar=np.var(P_ports[:,2])
-        if xvar>yvar:
-            P_ports=P_ports[P_ports[:,1].argsort()]
-            print("Detected that the ports should be sorted along the row index. "
-                  "Proceeding with this assumption.")
+        if keytype is None:
+            keytype = self.default_sortkey
+        if keytype == 'position':
+            # Sort based on dimension of most position variance
+            xvar=np.var(self.x_vec)
+            yvar=np.var(self.y_vec)
+            if xvar>yvar:
+                sorting_vec = self.x_vec
+            else:
+                sorting_vec = self.y_vec
+        elif keytype == 'x':
+            sorting_vec = self.x_vec
+        elif keytype == 'y':
+            sorting_vec = self.y_vec
+        elif keytype == 'P':
+            sorting_vec = self.P_vec
         else:
-            P_ports=P_ports[P_ports[:,2].argsort()]
-            print("Detected that the ports should be sorted along the column index. "
-                  "Proceeding with this assumption.")
-        P_norm=P_ports[:,0]/np.amax(P_ports[:,0])
+            raise ValueError('Invalid sort key: {}. Must be in [\'x\', \'y\', \'position\', \'P\'].'.format(keytype))
+        permutation = sorting_vec.argsort()
+        self.x_vec = self.x_vec[permutation]
+        self.y_vec = self.y_vec[permutation]
+        self.w_vec = self.w_vec[permutation]
+        if self._P_vec is not None:
+            self._P_vec = self._P_vec[permutation]
 
 
 

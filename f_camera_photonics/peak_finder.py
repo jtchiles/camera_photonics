@@ -436,10 +436,10 @@ def main(filename, box_spec=None, **config_overrides):
 def cvshow(cvimg, windowName='img'):
     ''' Convenience of window sizing, cleanup, etc '''
     print('Press any key to close the display window')
-    big = cv2.resize(cvimg, (0,0), fx=3, fy=3)
+    # big = cv2.resize(cvimg, (0,0), fx=3, fy=3)
     cv2.namedWindow(windowName, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(windowName, 400, 300)
-    cv2.imshow(windowName, big)
+    cv2.imshow(windowName, cvimg)
     cv2.waitKey(0)
     cv2.destroyWindow(windowName)
 

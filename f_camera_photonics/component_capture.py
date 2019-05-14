@@ -4,10 +4,9 @@ import os
 from contextlib import contextmanager
 import numpy as np
 
-camera_port = 0
 
 @contextmanager
-def open_camera():
+def open_camera(camera_port=0):
     camera = cv2.VideoCapture(camera_port)
     yield camera
     del(camera)

@@ -43,6 +43,7 @@ def kill():
 
 @tcp_command()
 def attenuate(atten=None):
+    ''' in dB '''
     return atten_db(atten)
 
 
@@ -107,19 +108,32 @@ def remote_call(cmd_name, address=None, port=None, **kwargs):
 
     context = zmq.Context()
     socket = context.socket(zmq.REQ)
+    socket.setsockopt(zmq.LINGER, 0)  # makes timeout possible
     socket.connect('tcp://{}:{}'.format(address, port))
 
     if type(cmd_name) is FunctionType:
         cmd_name = cmd_name.__name__
 
     args = ()
-    socket.send(pack_command(cmd_name, *args, **kwargs))
-    if cmd_name == 'kill':
-        return None
-    elif cmd_name in _raw_returners:
-        return socket.recv()
+    timeout = 5
+    try:
+        socket.send(pack_command(cmd_name, *args, **kwargs))
+        if cmd_name == 'kill':
+            return None
+        poller = zmq.Poller()
+        poller.register(socket, zmq.POLLIN)
+        if poller.poll(timeout*1000):
+            rec = socket.recv()
+        else:
+            raise IOError("Timeout processing command request")
+    finally:
+        socket.close()
+
+    if cmd_name in _raw_returners:
+        return rec
     else:
-        return unpack_response(socket.recv())
+        return unpack_response(rec)
+
 
 if __name__ == '__main__':
     run_server()

@@ -4,6 +4,9 @@ import sys
 import math
 import matplotlib.pyplot as plt
 from f_camera_photonics.peak_finder import cvshow, pick_ports, PortArray
+from f_camera_photonics.attenuator_driver import atten_lin
+from f_camera_photonics.component_capture import single_shot
+from f_camera_photonics.tcp_link import remote_call,
 
 class SimulatedEnvironment:
     ## Finds peaks ##
@@ -403,6 +406,24 @@ class Runner(object):
     def __init__(self, simulator):
         self.sim = simulator
 
+    def set_atten_lin(self, atten=None):
+        if self.sim == 'RealLife':
+            return atten_lin(atten)
+        elif self.sim == 'RemoteLife':
+            return remote_call('attenuate', atten= -10 * np.log10(atten))
+        elif isinstance(self.sim, SimEnviron2):
+            return self.sim.set_atten_lin(atten)
+        raise TypeError('Improper environment: {}'.format(self.sim))
+
+    def snap(self):
+        if self.sim == 'RealLife':
+            return single_shot()
+        elif self.sim == 'RemoteLife':
+            return unpack_image(remote_call('capture'))
+        elif isinstance(self.sim, SimEnviron2):
+            return self.sim.snap()
+        raise TypeError('Improper environment: {}'.format(self.sim))
+
     def hdr_peaks(): pass
 
     def autoalign(): pass
@@ -414,14 +435,14 @@ class Runner(object):
         X = pick_ports(diff_img, nports=8, cfg=None)
 
     def adjust_range(self):
-        self.sim.set_atten_lin(0)
-        img_off = self.sim.snap()
+        self.set_atten_lin(0)
+        img_off = self.snap()
         atten_bounds = [0, 1]
         prev_max = 0
         for _ in range(100):
             this_atten = np.mean(atten_bounds)
-            self.sim.set_atten_lin(this_atten)
-            img_diff = self.sim.snap() - img_off
+            self.set_atten_lin(this_atten)
+            img_diff = self.snap() - img_off
             this_max = np.max(img_diff)
             if abs(this_max - prev_max) < .01:
                 break
@@ -439,15 +460,15 @@ class Runner(object):
     def locate_peaks(self):
         # turns attenuation on and off, differences, finds peaks
         best_atten = self.adjust_range()
-        self.sim.set_atten_lin(best_atten)
+        self.set_atten_lin(best_atten)
         return _pick_peaks(img_diff)
 
     def interactive(self):
         # remove the background
-        self.sim.set_atten_lin(0)
-        img_off = self.sim.snap()
-        self.sim.set_atten_lin(1)
-        img_on = self.sim.snap()
+        self.set_atten_lin(0)
+        img_off = self.snap()
+        self.set_atten_lin(1)
+        img_on = self.snap()
         img_diff = img_on - img_off
         # Present the user with the peak picking step
         nports = 8
@@ -473,8 +494,8 @@ class Runner(object):
         ref_powers = np.zeros((nports, len(atten_arr)))
         test_powers = np.zeros((nports, len(atten_arr)))
         for iAtten, atten in enumerate(atten_arr):
-            self.sim.set_atten_lin(10 ** (atten / 10))
-            image = self.sim.snap() - img_off
+            self.set_atten_lin(10 ** (atten / 10))
+            image = self.snap() - img_off
             ref_powers[:, iAtten] = ref_ports.calc_powers(image)
             test_powers[:, iAtten] = test_ports.calc_powers(image)
         import pdb; pdb.set_trace()

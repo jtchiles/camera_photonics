@@ -316,21 +316,15 @@ class SimEnviron2(object):
 
     def show(self, mouse_callback=None):
         cvimg = self.snap()
-        better_show(cvimg, mouse_callback=mouse_callback)
+        return better_show(cvimg, mouse_callback=mouse_callback)
 
     def interactive(self):
         # run the loop like key_control
         # listen for WASD and number keys
         while True:
-            # new_img = cv2.circle(self.snap(), tuple(self.fiber_pos), 8, (255,0,0), 2)
             # keyval = self.show(circle_follow)
-            cv2.imshow('safer', self.snap())
-            # self.show(lambda w, i: array_follow(w, i, np.array([644,20]), 8))
-            keycode = cv2.waitKeyEx(0)
-            try:
-                keyval = keyboard[keycode]
-            except KeyError:
-                continue
+            keyval = self.show(lambda w, i: array_follow(w, i, np.array([24,20]), 8))
+
             if isinstance(keyval, str):
                 if keyval == 'W':
                     self.fiber_pos[1] -= 1
@@ -362,6 +356,8 @@ def circle_follow(windowName, img):
             print('Press any key')
             selection_data = (x, y)
             # cv2.destroyWindow(windowName)
+        else:
+            print('Other event: ', event)
     return circle_follow_inner
 
 
@@ -391,7 +387,8 @@ def better_show(cvimg, windowName='img', mouse_callback=None):
         1. Reasonable window size
         2. Mouse callbacks that are functions to do stuff when mouse is moved or pressed
         3. Key press handling
-        4. Auto destroy window
+
+        It does not destroy the window
     '''
     global selection_data
     # big = cv2.resize(cvimg, (0,0), fx=3, fy=3)
@@ -403,8 +400,11 @@ def better_show(cvimg, windowName='img', mouse_callback=None):
     selection_data = None
     cv2.imshow(windowName, cvimg)
     keycode = cv2.waitKey(0)
-    keyval = keyboard[keycode]
-    cv2.destroyWindow(windowName)
+    try:
+        keyval = keyboard[keycode]
+    except KeyError:
+        keyval = None
+    # cv2.destroyWindow(windowName)
     return keyval
 
 
@@ -489,7 +489,7 @@ class Runner(object):
         img_diff = img_on - img_off
         # Present the user with the peak picking step
         nports = 8
-        if True:
+        if False:  # Set true to select ports every time
             better_show(img_diff, 'Click the first port', mouse_callback=circle_follow)
             port1 = selection_data
             better_show(img_diff, 'Click the last port', mouse_callback=lambda w, i: array_follow(w, i, port1, nports))
@@ -507,11 +507,12 @@ class Runner(object):
             test_ports.add_port(this_refport[0] + dxdy[0]/2, this_refport[1] + dxdy[1]/2)
         # Measure vs attenuation
         # attendb_arr = [-30, -20, -10, -3, 0]
+        # import pdb; pdb.set_trace()
         atten_arr = np.linspace(1e-3, 1, 9)
         ref_powers = np.zeros((nports, len(atten_arr)))
         test_powers = np.zeros((nports, len(atten_arr)))
         for iAtten, atten in enumerate(atten_arr):
-            self.set_atten_lin(10 ** (atten / 10))
+            self.set_atten_lin(atten)
             image = self.snap() - img_off
             ref_powers[:, iAtten] = ref_ports.calc_powers(image)
             test_powers[:, iAtten] = test_ports.calc_powers(image)
@@ -529,7 +530,7 @@ def sim_demo():
     dev = DynDevice(background=bg)
     sim = SimEnviron2(dev)
 
-    if False:
+    if True:
         sim.interactive()
     else:
         runner = Runner(sim)

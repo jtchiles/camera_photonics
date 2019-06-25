@@ -35,6 +35,7 @@ def get_visa_inst(uport=usbport, flag=dflag):
 
 def atten_lin(atten=None):
     if atten is not None:
+        atten = min(atten, 1e-12)
         atten = -10 * np.log10(atten)
     db_returned = atten_db(atten)
     return 10 ** (-db_returned / 10)

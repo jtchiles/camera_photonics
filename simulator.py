@@ -4,7 +4,7 @@ import sys
 import math
 import matplotlib.pyplot as plt
 from f_camera_photonics.peak_finder import cvshow, pick_ports, PortArray
-from f_camera_photonics.attenuator_driver import atten_lin
+from f_camera_photonics.attenuator_driver import atten_lin, atten_db
 from f_camera_photonics.component_capture import single_shot
 from f_camera_photonics.tcp_link import remote_call, unpack_image
 
@@ -406,11 +406,16 @@ class Runner(object):
     def __init__(self, simulator):
         self.sim = simulator
 
-    def set_atten_lin(self, atten=None):
+    def set_atten_lin(self, atten):
+        atten = min(atten, 1e-12)
+        attendb = -10 * np.log10(atten)
+        self.set_atten_db(attendb)
+
+    def set_atten_db(self, atten=None):
         if self.sim == 'RealLife':
-            return atten_lin(atten)
+            return atten_db(atten)
         elif self.sim == 'RemoteLife':
-            return remote_call('attenuate', atten= -10 * np.log10(min(atten, 1e-12)))
+            return remote_call('attenuate', atten=atten)
         elif isinstance(self.sim, SimEnviron2):
             return self.sim.set_atten_lin(atten)
         raise TypeError('Improper environment: {}'.format(self.sim))

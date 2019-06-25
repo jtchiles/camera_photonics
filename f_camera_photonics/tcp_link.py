@@ -93,14 +93,17 @@ def run_server(port=None):
     print('PORT =', port)
     socket.bind("tcp://*:{}".format(port))  # * means localhost
 
-    while True:
-        message = socket.recv()
-        print("Received request: %s" % message)
-        response = parse_command(message)
-        socket.send(response)
-
+    try:
+        while True:
+            message = socket.recv()
+            print("Received request: %s" % message)
+            response = parse_command(message)
+            socket.send(response)
+    except:
+        socket.close()
 
 def remote_call(cmd_name, address=None, port=None, **kwargs):
+    ''' Make sure to specify argument names i.e. kwargs '''
     if address is None:
         address = remote_address_default
     if port is None:

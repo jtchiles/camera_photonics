@@ -42,6 +42,7 @@ def atten_lin(atten=None):
 
 def atten_db(atten=None):
     # Controls the attenuation. If no argument, it queries the instrument.
+    if atten is np.infty: atten = 100
     if atten is not None and (atten < 0 or atten > 100):
         raise ValueError('Attenuation {:.2f} is out of range [0--100]dB'.format(atten))
     inst = get_visa_inst()

@@ -410,7 +410,7 @@ class Runner(object):
         if self.sim == 'RealLife':
             return atten_lin(atten)
         elif self.sim == 'RemoteLife':
-            return remote_call('attenuate', atten= -10 * np.log10(atten))
+            return remote_call('attenuate', atten= -10 * np.log10(min(atten, 1e-12)))
         elif isinstance(self.sim, SimEnviron2):
             return self.sim.set_atten_lin(atten)
         raise TypeError('Improper environment: {}'.format(self.sim))

@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from f_camera_photonics.peak_finder import cvshow, pick_ports, PortArray
 from f_camera_photonics.attenuator_driver import atten_lin
 from f_camera_photonics.component_capture import single_shot
-from f_camera_photonics.tcp_link import remote_call,
+from f_camera_photonics.tcp_link import remote_call, unpack_image
 
 class SimulatedEnvironment:
     ## Finds peaks ##
@@ -435,7 +435,7 @@ class Runner(object):
         X = pick_ports(diff_img, nports=8, cfg=None)
 
     def adjust_range(self):
-        self.set_atten_lin(0)
+        self.set_atten_lin(1e-9)
         img_off = self.snap()
         atten_bounds = [0, 1]
         prev_max = 0
@@ -501,6 +501,11 @@ class Runner(object):
         import pdb; pdb.set_trace()
         plt.plot(atten_arr, ref_powers[-1, :])
         plt.show()
+
+
+def real_demo():
+    runner = Runner('RemoteLife')
+    runner.interactive()
 
 
 if __name__ == '__main__':

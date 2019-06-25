@@ -292,6 +292,9 @@ class SimEnviron2(object):
     def set_atten_lin(self, att):
         self.atten = att
 
+    def set_atten_db(self, atten):
+        self.atten = 10 ** (-atten / 10)
+
     def snap(self):
         # returns an image just like the one you get from the camera
         frame = self.device.background.copy()
@@ -313,16 +316,17 @@ class SimEnviron2(object):
 
     def show(self, mouse_callback=None):
         cvimg = self.snap()
-        better_show(cvimg, mouse_callback)
+        better_show(cvimg, mouse_callback=mouse_callback)
 
     def interactive(self):
         # run the loop like key_control
         # listen for WASD and number keys
         while True:
             # new_img = cv2.circle(self.snap(), tuple(self.fiber_pos), 8, (255,0,0), 2)
-            # self.show(circle_follow)
-            self.show(lambda w, i: array_follow(w, i, np.array([644,20]), 8))
-            keycode = cv2.waitKeyEx()
+            # keyval = self.show(circle_follow)
+            cv2.imshow('safer', self.snap())
+            # self.show(lambda w, i: array_follow(w, i, np.array([644,20]), 8))
+            keycode = cv2.waitKeyEx(0)
             try:
                 keyval = keyboard[keycode]
             except KeyError:
@@ -383,17 +387,25 @@ def array_follow(windowName, img, anchor_coord, nports):
 
 
 def better_show(cvimg, windowName='img', mouse_callback=None):
+    ''' Several extra features
+        1. Reasonable window size
+        2. Mouse callbacks that are functions to do stuff when mouse is moved or pressed
+        3. Key press handling
+        4. Auto destroy window
+    '''
     global selection_data
     # big = cv2.resize(cvimg, (0,0), fx=3, fy=3)
     cv2.namedWindow(windowName, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(windowName, 700, 700)
     if mouse_callback is not None:
-        print('Callback has been set')
+        # print('Callback has been set')
         cv2.setMouseCallback(windowName, mouse_callback(windowName, cvimg))
     selection_data = None
     cv2.imshow(windowName, cvimg)
-    cv2.waitKey(0)
+    keycode = cv2.waitKey(0)
+    keyval = keyboard[keycode]
     cv2.destroyWindow(windowName)
+    return keyval
 
 
 keyboard = {119: 'W', 97: 'A', 115: 'S', 100: 'D'} # movement
@@ -417,7 +429,7 @@ class Runner(object):
         elif self.sim == 'RemoteLife':
             return remote_call('attenuate', atten=atten)
         elif isinstance(self.sim, SimEnviron2):
-            return self.sim.set_atten_lin(atten)
+            return self.sim.set_atten_db(atten)
         raise TypeError('Improper environment: {}'.format(self.sim))
 
     def snap(self):
@@ -477,7 +489,7 @@ class Runner(object):
         img_diff = img_on - img_off
         # Present the user with the peak picking step
         nports = 8
-        if False:
+        if True:
             better_show(img_diff, 'Click the first port', mouse_callback=circle_follow)
             port1 = selection_data
             better_show(img_diff, 'Click the last port', mouse_callback=lambda w, i: array_follow(w, i, port1, nports))
@@ -503,7 +515,6 @@ class Runner(object):
             image = self.snap() - img_off
             ref_powers[:, iAtten] = ref_ports.calc_powers(image)
             test_powers[:, iAtten] = test_ports.calc_powers(image)
-        import pdb; pdb.set_trace()
         plt.plot(atten_arr, ref_powers[-1, :])
         plt.show()
 
@@ -512,6 +523,17 @@ def real_demo():
     runner = Runner('RemoteLife')
     runner.interactive()
 
+def sim_demo():
+    bg = cv2.imread('example_image.tif', -1).astype('float')
+    bg /= 2 ** 12
+    dev = DynDevice(background=bg)
+    sim = SimEnviron2(dev)
+
+    if False:
+        sim.interactive()
+    else:
+        runner = Runner(sim)
+        runner.interactive()
 
 if __name__ == '__main__':
     # OLD
@@ -533,16 +555,6 @@ if __name__ == '__main__':
     # if len(sys.argv) > 1:
     #    sim.key_control(str(sys.argv[1]))
 
+    sim_demo()
 
-    bg = cv2.imread('example_image.tif', -1).astype('float')
-    bg /= 2 ** 12
-    dev = DynDevice(background=bg)
-    sim = SimEnviron2(dev)
-
-    # NEW interactive
-    # sim.interactive()
-
-    runner = Runner(sim)
-    # NEW diff plot
-    runner.interactive()
 

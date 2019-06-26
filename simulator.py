@@ -18,9 +18,11 @@ from f_camera_photonics.attenuator_driver import atten_lin, atten_db
 from f_camera_photonics.component_capture import single_shot
 from f_camera_photonics.tcp_link import remote_call, unpack_image
 
-size = (200, 200)
-def get_domain():
+default_size = (200, 200)
+def get_domain(size=None):
     # returns arrays representing x, y at every grid point, depending on size
+    if size is None:
+        size = default_size
     u = np.arange(size[0])
     v = np.arange(size[1])
     U, V = np.meshgrid(v, u)
@@ -33,8 +35,8 @@ def gauss(distance, fwhm=peak_fwhm):
     return np.exp(- (distance ** 2 / 2 / sigma ** 2))
 
 
-def gauss_mesh(center, fwhm=peak_fwhm):
-    U, V = get_domain()
+def gauss_mesh(center, fwhm=peak_fwhm, size=None):
+    U, V = get_domain(size=size)
     du = U - center[0]
     dv = V - center[1]
     R = np.sqrt(du ** 2 + dv ** 2)
@@ -97,7 +99,7 @@ class SimEnviron2(object):
         # returns an image just like the one you get from the camera
         frame = self.device.background.copy()
         # input fiber spot
-        frame += self.atten * gauss_mesh(center=self.fiber_pos)
+        frame += self.atten * gauss_mesh(center=self.fiber_pos, size=frame.shape)
 
         # how far off is the fiber from in_gc? – get a factor
         dfiber = self.fiber_pos - self.device.in_gc_pos
@@ -105,7 +107,7 @@ class SimEnviron2(object):
 
         # what are port factors - list of factors
         for port_pos, port_intensity in self.device.out_gc_list:
-            port_spot = gauss_mesh(center=port_pos)
+            port_spot = gauss_mesh(center=port_pos, size=frame.shape)
             port_spot *= self.atten * alignment_factor * port_intensity
             frame += port_spot
         # clip it
@@ -221,7 +223,8 @@ class Runner(object):
             raise TypeError('Improper environment: {}'.format(simulator))
         self.sim = simulator
         self.background = None
-        self.selection_data = dict()
+        self.port_array = None
+        # self.selection_data = dict()
 
     def move_fiber_by(self, dx, dy):
         if self.sim == 'RealLife':
@@ -325,6 +328,9 @@ class Runner(object):
             test_ports.add_port(pinfo[0], pinfo[1])
         return ref_ports, test_ports
 
+    def set_live_ports(self, port_array):
+        self.port_array = port_array
+
     def interactive(self):
         # Measure vs attenuation
         # attendb_arr = [-30, -20, -10, -3, 0]
@@ -398,12 +404,37 @@ def sim_demo(use_runner=False):
     else:
         sim.interactive()
 
-def get_runner():
+def get_runner(level=0):
+    # See if it runs without error
     bg = cv2.imread('example_image.tif', -1).astype('float')
     bg /= 2 ** 12
     dev = DynDevice(background=bg)
     sim = SimEnviron2(dev)
     runner = Runner(sim)
+
+    if level >= 1:
+        # Background removal
+        runner.acquire_background()
+        runner.set_atten_db(0)
+        if level == 1:
+            runner.show()
+    if level >= 2:
+        # Interactive peaks
+        new_ports = runner.interactive_pick_array()
+        new_ports.sort_by('y')
+        runner.port_array = new_ports
+    if level >= 3:
+        # Power matrix
+        attens = [20, 10, 0]
+        powers = np.zeros((len(attens), len(new_ports)))
+        for iAtten, atten in enumerate(attens):
+            runner.set_atten_db(atten)
+            image = runner.snap(remove_background=True)
+            runner.port_array.calc_powers(image)
+            powers[iAtten, :] = runner.port_array.P_vec
+        print(powers)
+        plt.plot(attens, powers)
+        return powers
     return runner
 
 

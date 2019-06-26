@@ -125,17 +125,17 @@ class SimEnviron2(object):
 
             if isinstance(keyval, str):
                 if keyval == 'W':
-                    self.fiber_pos[1] -= 1
+                    self.move_fiber_by(0, -1)
                 elif keyval == 'S':
-                    self.fiber_pos[1] += 1
+                    self.move_fiber_by(0, 1)
                 elif keyval == 'A':
-                    self.fiber_pos[0] -= 1
+                    self.move_fiber_by(-1, 0)
                 elif keyval == 'D':
-                    self.fiber_pos[0] += 1
+                    self.move_fiber_by(1, 0)
                 elif keyval == 'Space':
                     break
             elif isinstance(keyval, int):
-                self.atten = float(keyval) / 9.0
+                self.set_atten_lin(float(keyval) / 9.0)
 
 # These are mouse callbacks
 selection_data = None
@@ -215,7 +215,31 @@ for i in range(10):  # attenuation
 
 class Runner(object):
     def __init__(self, simulator):
+        if not isinstance(simulator, SimEnviron2) and simulator not in ['RealLife', 'RemoteLife']
+            raise TypeError('Improper environment: {}'.format(simulator))
         self.sim = simulator
+        self.background = None
+        self.selection_data = dict()
+
+    def move_fiber_by(self, dx, dy):
+        if self.sim == 'RealLife':
+            print('No translation stage')
+            return
+        elif self.sim == 'RemoteLife':
+            print('No translation stage')
+            return
+        elif isinstance(self.sim, SimEnviron2):
+            return self.sim.move_fiber_by(dx, dy)
+
+    def move_fiber_to(self, x, y):
+        if self.sim == 'RealLife':
+            print('No translation stage')
+            return
+        elif self.sim == 'RemoteLife':
+            print('No translation stage')
+            return
+        elif isinstance(self.sim, SimEnviron2):
+            return self.sim.move_fiber_to(x, y)
 
     def set_atten_lin(self, atten):
         atten = min(atten, 1e-12)
@@ -229,17 +253,83 @@ class Runner(object):
             return remote_call('attenuate', atten=atten)
         elif isinstance(self.sim, SimEnviron2):
             return self.sim.set_atten_db(atten)
-        raise TypeError('Improper environment: {}'.format(self.sim))
 
-    def snap(self):
+    def raw_snap(self):
         if self.sim == 'RealLife':
             return single_shot()
         elif self.sim == 'RemoteLife':
             return unpack_image(remote_call('capture'))
         elif isinstance(self.sim, SimEnviron2):
             return self.sim.snap()
-        raise TypeError('Improper environment: {}'.format(self.sim))
 
+    def snap(self, remove_background=False):
+        raw = self.raw_snap()
+        if remove_background:
+            if self.background is None:
+                raise ValueError('background has not been taken')
+            return raw - self.background
+        else:
+            return raw
+
+    def acquire_background()
+        # remove the background
+        self.set_atten_lin(0)
+        self.background = self.raw_snap()
+        # self.set_atten_lin(1)
+        # img_on = self.snap()
+        # img_diff = img_on - img_off
+
+    def interactive_pick_port(self):
+        # take a new image
+        img_diff = self.snap(remove_background=True)
+        keyval = better_show(img_diff, 'Click the first port', mouse_callback=circle_follow)
+        port1 = selection_data
+        all_ports = PortArray()
+        all_ports.add_port(port1[0], port1[1])
+        return all_ports
+
+    def interactive_pick_array(self, nports=16):
+        # Present the user with the peak picking step for multiple ports
+        img_diff = self.snap(remove_background=True)
+        better_show(img_diff, 'Click the first port', mouse_callback=circle_follow)
+        port1 = selection_data
+        better_show(img_diff, 'Click the last port', mouse_callback=lambda w, i: array_follow(w, i, port1, nports))
+        port8 = selection_data
+        dxdy = np.subtract(port8, port1) / (nports - 1)
+        all_ports = PortArray()
+        for iPort in range(nports):
+            this_refport = np.array(port1) + np.array(dxdy) * iPortPair
+            all_ports.add_port(this_refport[0], this_refport[1])
+        return all_ports
+
+    def interactive_pick_interleaved_array(self, nexperiments=8):
+        all_ports = interactive_pick_array(nports=nexperiments * 2)
+        ref_ports = PortArray()
+        test_ports = PortArray()
+        for iPortPair in range(nexperiments):
+            pinfo = all_ports[iPortPair]
+            ref_ports.add_port(pinfo[0], pinfo[1])
+            pinfo = all_ports[iPortPair + 1]
+            test_ports.add_port(pinfo[0], pinfo[1])
+        return ref_ports, test_ports
+
+    def interactive(self):
+        # Measure vs attenuation
+        # attendb_arr = [-30, -20, -10, -3, 0]
+        # import pdb; pdb.set_trace()
+        atten_arr = np.linspace(1e-3, 1, 9)
+        ref_powers = np.zeros((nports, len(atten_arr)))
+        test_powers = np.zeros((nports, len(atten_arr)))
+        for iAtten, atten in enumerate(atten_arr):
+            self.set_atten_lin(atten)
+            image = self.snap() - img_off
+            ref_powers[:, iAtten] = ref_ports.calc_powers(image)
+            test_powers[:, iAtten] = test_ports.calc_powers(image)
+        plt.plot(atten_arr, ref_powers[-1, :])
+        plt.show()
+
+
+class AlignmentRunner(Runner):
     def hdr_peaks(): pass
 
     def autoalign(): pass
@@ -278,45 +368,6 @@ class Runner(object):
         best_atten = self.adjust_range()
         self.set_atten_lin(best_atten)
         return _pick_peaks(img_diff)
-
-    def interactive(self):
-        # remove the background
-        self.set_atten_lin(0)
-        img_off = self.snap()
-        self.set_atten_lin(1)
-        img_on = self.snap()
-        img_diff = img_on - img_off
-        # Present the user with the peak picking step
-        nports = 8
-        if False:  # Set true to select ports every time
-            better_show(img_diff, 'Click the first port', mouse_callback=circle_follow)
-            port1 = selection_data
-            better_show(img_diff, 'Click the last port', mouse_callback=lambda w, i: array_follow(w, i, port1, nports))
-            port8 = selection_data
-        else:
-            port1 = (216, 7)
-            port8 = (195, 196)
-        dxdy = np.subtract(port8, port1) / (nports - 1)
-        # Now do the port structures
-        ref_ports = PortArray()
-        test_ports = PortArray()
-        for iPortPair in range(nports):
-            this_refport = np.array(port1) + np.array(dxdy) * iPortPair
-            ref_ports.add_port(this_refport[0], this_refport[1])
-            test_ports.add_port(this_refport[0] + dxdy[0]/2, this_refport[1] + dxdy[1]/2)
-        # Measure vs attenuation
-        # attendb_arr = [-30, -20, -10, -3, 0]
-        # import pdb; pdb.set_trace()
-        atten_arr = np.linspace(1e-3, 1, 9)
-        ref_powers = np.zeros((nports, len(atten_arr)))
-        test_powers = np.zeros((nports, len(atten_arr)))
-        for iAtten, atten in enumerate(atten_arr):
-            self.set_atten_lin(atten)
-            image = self.snap() - img_off
-            ref_powers[:, iAtten] = ref_ports.calc_powers(image)
-            test_powers[:, iAtten] = test_ports.calc_powers(image)
-        plt.plot(atten_arr, ref_powers[-1, :])
-        plt.show()
 
 
 def real_demo():

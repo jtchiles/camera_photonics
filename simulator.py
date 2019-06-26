@@ -1,3 +1,12 @@
+''' How to check that this is working. Note some values are hard-coded now (fiber ports).
+
+    Environment: Run sim_demo(). You should see a window with a picture of a chip and 8 ports.
+    Pressing WASD and 1-9 will change the image. When you click, the coordinates will print.
+
+    Runner: Run sim_demo(True).
+'''
+
+
 import numpy as np
 import cv2
 import sys
@@ -291,9 +300,11 @@ class SimEnviron2(object):
 
     def set_atten_lin(self, att):
         self.atten = att
+        self.show()
 
     def set_atten_db(self, atten):
         self.atten = 10 ** (-atten / 10)
+        self.show()
 
     def snap(self):
         # returns an image just like the one you get from the camera
@@ -319,8 +330,8 @@ class SimEnviron2(object):
         return better_show(cvimg, mouse_callback=mouse_callback)
 
     def interactive(self):
-        # run the loop like key_control
         # listen for WASD and number keys
+        # NOTE: this is not meant to be used in a real simulation activity, just for testing
         while True:
             # keyval = self.show(circle_follow)
             keyval = self.show(lambda w, i: array_follow(w, i, np.array([24,20]), 8))
@@ -400,6 +411,7 @@ def better_show(cvimg, windowName='img', mouse_callback=None):
     selection_data = None
     cv2.imshow(windowName, cvimg)
     keycode = cv2.waitKey(0)
+    # keyval = chr(keycode & 0xFF)
     try:
         keyval = keyboard[keycode]
     except KeyError:
@@ -524,17 +536,17 @@ def real_demo():
     runner = Runner('RemoteLife')
     runner.interactive()
 
-def sim_demo():
+def sim_demo(use_runner=False):
     bg = cv2.imread('example_image.tif', -1).astype('float')
     bg /= 2 ** 12
     dev = DynDevice(background=bg)
     sim = SimEnviron2(dev)
 
-    if True:
-        sim.interactive()
-    else:
+    if use_runner:
         runner = Runner(sim)
         runner.interactive()
+    else:
+        sim.interactive()
 
 if __name__ == '__main__':
     # OLD

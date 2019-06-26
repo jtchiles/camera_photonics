@@ -10,6 +10,7 @@
 import numpy as np
 import cv2
 import sys
+import time
 import math
 import matplotlib.pyplot as plt
 from f_camera_photonics.peak_finder import cvshow, pick_ports, PortArray
@@ -87,11 +88,10 @@ class SimEnviron2(object):
 
     def set_atten_lin(self, att):
         self.atten = att
-        self.show()
 
     def set_atten_db(self, atten):
+        print('mark 1')
         self.atten = 10 ** (-atten / 10)
-        self.show()
 
     def snap(self):
         # returns an image just like the one you get from the camera
@@ -113,15 +113,17 @@ class SimEnviron2(object):
         return frame
 
     def show(self, mouse_callback=None):
+        # shows the current state
         cvimg = self.snap()
-        return better_show(cvimg, mouse_callback=mouse_callback)
+        return cvshow(cvimg)
 
     def interactive(self):
         # listen for WASD and number keys
         # NOTE: this is not meant to be used in a real simulation activity, just for testing
         while True:
-            # keyval = self.show(circle_follow)
-            keyval = self.show(lambda w, i: array_follow(w, i, np.array([24,20]), 8))
+            cvimg = self.snap()
+            # keyval = self.show(cvimg, circle_follow)
+            keyval = better_show(cvimg, mouse_callback=lambda w, i: array_follow(w, i, np.array([24,20]), 8))
 
             if isinstance(keyval, str):
                 if keyval == 'W':
@@ -147,7 +149,7 @@ def circle_follow(windowName, img):
         if event == cv2.EVENT_MOUSEMOVE:
             img_copy = img.copy()
             center = (x, y)
-            cv2.circle(img_copy, center, 7, (255, 0, 0), 1)
+            cv2.circle(img_copy, center, 7, (255, 64, 64), 1)
             cv2.imshow(windowName, img_copy)
         elif event == cv2.EVENT_LBUTTONUP:
             print('Point is picked', x, y)
@@ -180,7 +182,7 @@ def array_follow(windowName, img, anchor_coord, nports):
     return array_follow_inner
 
 
-def better_show(cvimg, windowName='img', mouse_callback=None):
+def better_show(cvimg, windowName='better_img', mouse_callback=None):
     ''' Several extra features
         1. Reasonable window size
         2. Mouse callbacks that are functions to do stuff when mouse is moved or pressed
@@ -215,7 +217,7 @@ for i in range(10):  # attenuation
 
 class Runner(object):
     def __init__(self, simulator):
-        if not isinstance(simulator, SimEnviron2) and simulator not in ['RealLife', 'RemoteLife']
+        if not isinstance(simulator, SimEnviron2) and simulator not in ['RealLife', 'RemoteLife']:
             raise TypeError('Improper environment: {}'.format(simulator))
         self.sim = simulator
         self.background = None
@@ -228,7 +230,8 @@ class Runner(object):
         elif self.sim == 'RemoteLife':
             print('No translation stage')
             return
-        elif isinstance(self.sim, SimEnviron2):
+        # elif isinstance(self.sim, SimEnviron2):
+        else:
             return self.sim.move_fiber_by(dx, dy)
 
     def move_fiber_to(self, x, y):
@@ -238,7 +241,8 @@ class Runner(object):
         elif self.sim == 'RemoteLife':
             print('No translation stage')
             return
-        elif isinstance(self.sim, SimEnviron2):
+        # elif isinstance(self.sim, SimEnviron2):
+        else:
             return self.sim.move_fiber_to(x, y)
 
     def set_atten_lin(self, atten):
@@ -251,7 +255,8 @@ class Runner(object):
             return atten_db(atten)
         elif self.sim == 'RemoteLife':
             return remote_call('attenuate', atten=atten)
-        elif isinstance(self.sim, SimEnviron2):
+        # elif isinstance(self.sim, SimEnviron2):
+        else:
             return self.sim.set_atten_db(atten)
 
     def raw_snap(self):
@@ -259,7 +264,8 @@ class Runner(object):
             return single_shot()
         elif self.sim == 'RemoteLife':
             return unpack_image(remote_call('capture'))
-        elif isinstance(self.sim, SimEnviron2):
+        # elif isinstance(self.sim, SimEnviron2):
+        else:
             return self.sim.snap()
 
     def snap(self, remove_background=False):
@@ -271,7 +277,13 @@ class Runner(object):
         else:
             return raw
 
-    def acquire_background()
+    def show(self, remove_background=True):
+        img_diff = self.snap(remove_background=remove_background)
+        keyval = better_show(img_diff, 'Space to close')
+        time.sleep(1)
+        cv2.destroyWindow('Space to close')
+
+    def acquire_background(self):
         # remove the background
         self.set_atten_lin(0)
         self.background = self.raw_snap()
@@ -298,12 +310,12 @@ class Runner(object):
         dxdy = np.subtract(port8, port1) / (nports - 1)
         all_ports = PortArray()
         for iPort in range(nports):
-            this_refport = np.array(port1) + np.array(dxdy) * iPortPair
+            this_refport = np.array(port1) + np.array(dxdy) * iPort
             all_ports.add_port(this_refport[0], this_refport[1])
         return all_ports
 
     def interactive_pick_interleaved_array(self, nexperiments=8):
-        all_ports = interactive_pick_array(nports=nexperiments * 2)
+        all_ports = self.interactive_pick_array(nports=nexperiments * 2)
         ref_ports = PortArray()
         test_ports = PortArray()
         for iPortPair in range(nexperiments):
@@ -386,10 +398,16 @@ def sim_demo(use_runner=False):
     else:
         sim.interactive()
 
-if __name__ == '__main__':
-    # OLD
-    # sim = SimulatedEnvironment()
+def get_runner():
+    bg = cv2.imread('example_image.tif', -1).astype('float')
+    bg /= 2 ** 12
+    dev = DynDevice(background=bg)
+    sim = SimEnviron2(dev)
+    runner = Runner(sim)
+    return runner
 
+
+if __name__ == '__main__':
     # '''To run the peak finder'''
     # #peaks = sim.set_peaks('SUWG01_01-lamp.tif', 'SUWG01_01-0dB.tif')
 

@@ -188,7 +188,7 @@ class PortArray(object):
 
     def __getitem__(self, index):
         ret_array = np.array([self.x_vec[index], self.y_vec[index], self.w_vec[index], 0])
-        if self.P_vec is not None:
+        if self._P_vec is not None:
             ret_array[-1] = self.P_vec[index]
         return ret_array
 

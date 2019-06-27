@@ -6,3 +6,6 @@ measurement_data
 
 # Mac OS stuff
 .DS_Store
+
+# jupyter artifacts
+notebooks/.ipynb_checkpoints

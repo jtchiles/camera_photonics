@@ -46,6 +46,8 @@ def get_all_config(configfile=None, **config_overrides):
 
     cfg.use_blanking_box=Config.getboolean("signal_processing","use_blanking_box")
     cfg.use_valid_box=Config.getboolean("signal_processing","use_valid_box")
+    valid_box_str = Config.get("signal_processing","valid_box")
+    cfg.valid_box=eval(valid_box_str)  # should give a 2x2 list or None
     cfg.box_width=Config.getint("signal_processing","box_width")
     cfg.max_box_width=Config.getint("signal_processing","max_box_width")
     cfg.kernel_width=Config.getint("signal_processing","kernel_width")
@@ -130,7 +132,7 @@ def pick_ports(image, nports, cfg=None):
         for i in range(0, len(prev_x)):
             #TODO fix line 112
             #see if the current candidate is too close to the last peak location
-            if(abs(prev_x[i]-x) < prev_box_width[i]*3) and (abs(prev_y[i] -y) < prev_box_width[i]*3):
+            if(abs(prev_x[i]-x) < prev_box_width[i]) and (abs(prev_y[i] -y) < prev_box_width[i]):
                 P_window[I[0],0] = 0 # null out anything close to the previous peak
                 near_pixel = 1
 
@@ -164,10 +166,15 @@ def pick_ports(image, nports, cfg=None):
                 P_ports = P_window[int(I[0])].reshape(1,3)
         near_pixel = 0
 
-    x_vec=P_ports[:,1]
-    y_vec=P_ports[:,2]
-    box_width_vec = prev_box_width
-    return x_vec, y_vec, box_width_vec
+    port_array = PortArray()
+    for iPort in range(nports):
+        port_array.add_port(x=prev_x[iPort], y=prev_y[iPort], w=prev_box_width[iPort])
+    return port_array
+
+    # x_vec=P_ports[:,1]
+    # y_vec=P_ports[:,2]
+    # box_width_vec = prev_box_width
+    # return x_vec, y_vec, box_width_vec
 
 
 class PortArray(object):
@@ -253,6 +260,16 @@ class PortArray(object):
         if self._P_vec is not None:
             self._P_vec = self._P_vec[permutation]
 
+    def to_dict(self):
+        pout = {"Total Power": list(self.P_vec),
+                "Normalized Power": list(self.Pnorm_vec),
+                "x": list(self.x_vec),
+                "y": list(self.y_vec),
+                "box_width": list(self.w_vec)}
+        return pout
+
+    def to_JSON(self):
+        return json.dumps(self.to_dict(), sort_keys=True, indent=4)
 
 
 #### Main function
@@ -315,22 +332,27 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
 
     #If the user chooses to use a "valid box", open an ROI selector and null out everything outside the ROI.
     if cfg.use_valid_box is True:
-        print("\n\nSelect a valid region of pixels to look for all output ports.  Everywhere else will be zeroed out.")
-        windowName = filename_short + ' : Valid region selector'
-        win = cv2.namedWindow(windowName, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(windowName, 800, 600)
-        r = cv2.selectROI(windowName=windowName, img=img_array)
+        if cfg.valid_box is None:
+            print("\n\nSelect a valid region of pixels to look for all output ports.  Everywhere else will be zeroed out.")
+            windowName = filename_short + ' : Valid region selector'
+            win = cv2.namedWindow(windowName, cv2.WINDOW_NORMAL)
+            cv2.resizeWindow(windowName, 800, 600)
+            r = cv2.selectROI(windowName=windowName, img=img_array)
+            print(r)
+            cv2.destroyWindow(windowName)
+        else:
+            r = cfg.valid_box
         img_array = make_pixels_black(img_array, r,255)
         img2_temp=img2
         img2_temp=img2_temp*0
         img2 = swap_pixel_data(img2_temp, img2,r)
-        cv2.destroyWindow(windowName)
 
 
     #subtract darkfield (background) image from main data.
-    img2=np.subtract(img2.astype(float),img_darkfield.astype(float))
-    img2[img2 < 0] = 0 # set all negative values to 0
-    print("The maximum value in the image after darkfield correction is: "+str(np.amax(img2)) +" (out of a camera limit of " +str(math.pow(2, cfg.bit_depth_per_pixel)-1)+")")
+    if cfg.use_darkfield:
+        img2=np.subtract(img2.astype(float),img_darkfield.astype(float))
+        img2[img2 < 0] = 0 # set all negative values to 0
+        print("The maximum value in the image after darkfield correction is: "+str(np.amax(img2)) +" (out of a camera limit of " +str(math.pow(2, cfg.bit_depth_per_pixel)-1)+")")
 
 
     #/////////////////////////////////////////////////////////////////////////////////////////////
@@ -348,37 +370,40 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
 
     # find the gratings/ports
     if box_spec is None:
-        n_ports = cfg.default_nports
-        x_vec, y_vec, box_width_vec = pick_ports(img2, n_ports, cfg)
+        nports = cfg.default_nports
+        port_arr = pick_ports(img2, nports, cfg)
     else:
-        x_vec, y_vec, box_width_vec = box_spec.T
-        n_ports = len(x_vec)
+        port_arr = PortArray.from_boxspec(box_spec)
+        nports = len(port_arr)
+    port_arr.calc_powers(img2)
 
 
+    #draw a rectangle surrounding each port to represent the integration window.
+    # This currently has big problems referring to old variables
     img2_scaled=img2/(math.pow(2,cfg.bit_depth_per_pixel)/16)
     font                   = cv2.FONT_HERSHEY_SIMPLEX
     fontScale              = 0.3
     fontColor              = (1,1,1)
     lineType               = 1
     for i in range(0, nports):
-        #draw a rectangle surrounding each port to represent the integration window.
+        this_port = port_arr[i]
         cv2.rectangle(img2_scaled,
-                      (int(P_ports[i,2]-P_ports[i,3]), int(P_ports[i,1]-P_ports[i,3])),
-                      (int(P_ports[i,2] + P_ports[i,3]), int(P_ports[i,1]+P_ports[i,3])),
-                      (32,32,32), 1)
+                      (int(this_port[1] - this_port[2]), int(this_port[0] - this_port[2])),
+                      (int(this_port[1] + this_port[2]), int(this_port[0] + this_port[2])),
+                      (0,255,0), 1)
 
-        annotation = "(#"+ str(i+1) +", " + "P: " +"{:.2f}".format(P_norm[i])+")"
+        annotation = "(#"+ str(i+1) +", " + "P: " +"{:.2f}".format(port_arr.Pnorm_vec[i])+")"
         #if you want to include the row and column indices, tack this on to the annotation: +", " + str(P_ports[i,2]) + ", " + str(P_ports[i,1]) +
         print(annotation)
 
         #put the annotation near but slightly offset from the port location
         side_sign = int(2 * (i % 2 - .5))
         if i % 2 == 0:
-            text_offset = P_ports[i, 3]
+            text_offset = this_port[2]
         else:
-            text_offset = - P_ports[i, 3] - 6 * len(annotation)
-        location = (int(P_ports[i, 2] + text_offset),
-                    int(P_ports[i, 1] - 0.3 * P_ports[i, 3]))
+            text_offset = - this_port[2] - 6 * len(annotation)
+        location = (int(this_port[1] + text_offset),
+                    int(this_port[0] - 0.3 * this_port[2]))
 
         cv2.putText(img2_scaled,
             annotation,
@@ -388,12 +413,7 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
             fontColor,
             lineType)
 
-    out_data = P_ports.T.tolist()
-    pout = {"Total Power": out_data[0],
-            "Normalized Power":P_norm.tolist(),
-            "x":out_data[1],
-            "y":out_data[2],
-            "box_width":out_data[3]}
+    pout = port_arr.to_dict()
 
     windowName = filename_short + ' : Peakfinder results'
     cvshow(img2_scaled, windowName=windowName)

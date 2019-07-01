@@ -4,6 +4,10 @@
     Pressing WASD and 1-9 will change the image. When you click, the coordinates will print.
 
     Runner: Run sim_demo(True).
+
+    Runner with selection: Run get_runner(3)
+
+    Problem: OpenCV and matplotlib are not working together
 '''
 
 
@@ -17,6 +21,8 @@ from f_camera_photonics.peak_finder import cvshow, pick_ports, PortArray
 from f_camera_photonics.attenuator_driver import atten_lin, atten_db
 from f_camera_photonics.component_capture import single_shot
 from f_camera_photonics.tcp_link import remote_call, unpack_image
+
+cv2.ocl.setUseOpenCL(False)
 
 default_size = (200, 200)
 def get_domain(size=None):
@@ -432,11 +438,19 @@ def get_runner(level=0):
             image = runner.snap(remove_background=True)
             runner.port_array.calc_powers(image)
             powers[iAtten, :] = runner.port_array.P_vec
-        print(powers)
-        plt.plot(attens, powers)
-        return powers
+        # print(powers)
+        if level == 3:
+            return powers
+    if level >= 4:
+        np.savetxt("simfoo.csv", powers, delimiter=",")
+    if level >= 5:
+        do_plotting()
     return runner
 
+def do_plotting():
+    powers = np.loadtxt('simfoo.csv', delimiter=',')
+    plt.semilogy(powers, '.-')
+    plt.show()
 
 if __name__ == '__main__':
     # '''To run the peak finder'''
@@ -455,6 +469,6 @@ if __name__ == '__main__':
     # if len(sys.argv) > 1:
     #    sim.key_control(str(sys.argv[1]))
 
-    sim_demo()
+    get_runner(5)
 
 

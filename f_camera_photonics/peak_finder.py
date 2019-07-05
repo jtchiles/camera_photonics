@@ -413,10 +413,11 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
             fontColor,
             lineType)
 
-    pout = port_arr.to_dict()
-
-    windowName = filename_short + ' : Peakfinder results'
+    print('Check if it is correct')
+    windowName = filename + ' : Peakfinder results'
     cvshow(img2_scaled, windowName=windowName)
+
+    pout = port_arr.to_dict()
     return pout
 
 
@@ -458,7 +459,7 @@ def cvshow(cvimg, windowName='img'):
     print('Press any key to close the display window')
     # big = cv2.resize(cvimg, (0,0), fx=3, fy=3)
     cv2.namedWindow(windowName, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(windowName, 400, 300)
+    cv2.resizeWindow(windowName, 800, 600)
     cv2.imshow(windowName, cvimg)
     cv2.waitKey(0)
     cv2.destroyWindow(windowName)

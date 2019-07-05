@@ -184,10 +184,17 @@ class PortArray(object):
     '''
     default_sortkey = 'position'
 
-    def __init__(self):
-        self.x_vec = np.array([])
-        self.y_vec = np.array([])
-        self.w_vec = np.array([])
+    def __init__(self, x_vec=None, y_vec=None, w_vec=None):
+        if any(vec is not None for vec in [x_vec, y_vec, w_vec]):
+            if any(vec is None for vec in [x_vec, y_vec, w_vec]):
+                raise ValueError('If any vector is specified to initialize PortArray, all of them must be specified')
+            nports = len(x_vec)
+            if any(len(vec) != nports for vec in [x_vec, y_vec, w_vec]):
+                raise ValueError('x, y, and w vectors are not the same length')
+        else:
+            self.x_vec = np.array([])
+            self.y_vec = np.array([])
+            self.w_vec = np.array([])
         self._P_vec = None
 
     def __len__(self):
@@ -205,6 +212,24 @@ class PortArray(object):
         self.y_vec = np.append(self.y_vec, y)
         self.w_vec = np.append(self.w_vec, w)
         self.sort_by()
+
+    @classmethod
+    def from_boxspec(cls, box_spec):
+        '''
+            It is an iterable like [[x1, y1, width1] , [x2, y2, width2]],
+            where "width" is side length of a rectangular box
+        '''
+        obj = cls()
+        for port in box_spec:
+            x, y, w = port
+            obj.add_port(x, y, w)
+        return obj
+
+    def to_boxspec(self):
+        box_spec = []
+        for iPort in range(len(self)):
+            box_spec.append(self[iPort][:3])
+        return box_spec
 
     @property
     def P_vec(self):
@@ -277,12 +302,10 @@ class PortArray(object):
 def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overrides):
     ''' Not backwards compatible! - filename is now relative to user's directory.
 
-        To skip the user interface, give box_spec.
-        It is an np.ndarray like [[x1, y1, width1] , [x2, y2, width2]], where "width" is side length of sqaure box
+        To skip the user interface, give box_spec. It can be a PortArray or a list of lists.
     '''
 
     #first, get the os-independent directories and filenames put together
-    # os.chdir(os.path.dirname(os.path.realpath(__file__)))
     filename = os.path.realpath(filename)
     filename_short = os.path.basename(filename)
     if os.path.splitext(filename)[1] == '.json':
@@ -354,13 +377,6 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
         img2[img2 < 0] = 0 # set all negative values to 0
         print("The maximum value in the image after darkfield correction is: "+str(np.amax(img2)) +" (out of a camera limit of " +str(math.pow(2, cfg.bit_depth_per_pixel)-1)+")")
 
-
-    #/////////////////////////////////////////////////////////////////////////////////////////////
-    # End User Interface portion and begin calculations
-    # At this point, any desired background and ROI corrections have been completed.
-    #/////////////////////////////////////////////////////////////////////////////////////////////
-
-
     saturation_level=math.pow(2,cfg.bit_depth_per_pixel)*cfg.saturation_level_fraction #calculate the threshold for the saturation condition
     maxval = np.amax(img2) #find max value in the entire image
 
@@ -368,15 +384,24 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
     if(maxval >= saturation_level):
         raise RuntimeError("Image Saturated!")
 
+
+    #/////////////////////////////////////////////////////////////////////////////////////////////
+    # End User Interface portion and begin calculations
+    # At this point, any desired background and ROI corrections have been completed.
+    #/////////////////////////////////////////////////////////////////////////////////////////////
+
     # find the gratings/ports
-    if box_spec is None:
+    user_check_required = (box_spec is None)
+    if box_spec is not None:
+        if isinstance(box_spec, PortArray):
+            port_arr = box_spec
+        else:
+            port_arr = PortArray.from_boxspec(box_spec)
+        nports = len(port_arr)
+    else:
         nports = cfg.default_nports
         port_arr = pick_ports(img2, nports, cfg)
-    else:
-        port_arr = PortArray.from_boxspec(box_spec)
-        nports = len(port_arr)
     port_arr.calc_powers(img2)
-
 
     #draw a rectangle surrounding each port to represent the integration window.
     # This currently has big problems referring to old variables
@@ -413,9 +438,10 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
             fontColor,
             lineType)
 
-    print('Check if it is correct')
-    windowName = filename + ' : Peakfinder results'
-    cvshow(img2_scaled, windowName=windowName)
+    if user_check_required:
+        print('Check if it is correct')
+        windowName = filename + ' : Peakfinder results'
+        cvshow(img2_scaled, windowName=windowName)
 
     pout = port_arr.to_dict()
     return pout

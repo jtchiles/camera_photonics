@@ -52,6 +52,7 @@ def get_all_config(configfile=None, **config_overrides):
     cfg.max_box_width=Config.getint("signal_processing","max_box_width")
     cfg.kernel_width=Config.getint("signal_processing","kernel_width")
     cfg.min_residual=Config.getfloat("signal_processing","min_residual")
+    cfg.min_standoff=Config.getfloat("signal_processing","min_standoff")
     cfg.pixel_increment=Config.getint("signal_processing","pixel_increment")
     cfg.default_nports=Config.getint("signal_processing","default_nports")
     cfg.saturation_level_fraction=Config.getfloat("signal_processing","saturation_level_fraction")
@@ -132,6 +133,7 @@ def pick_ports(image, nports, cfg=None):
         for i in range(0, len(prev_x)):
             #TODO fix line 112
             #see if the current candidate is too close to the last peak location
+            net_standoff = max(prev_box_width[i], cfg.min_standoff)
             if(abs(prev_x[i]-x) < prev_box_width[i]) and (abs(prev_y[i] -y) < prev_box_width[i]):
                 P_window[I[0],0] = 0 # null out anything close to the previous peak
                 near_pixel = 1
@@ -184,18 +186,26 @@ class PortArray(object):
     '''
     default_sortkey = 'position'
 
-    def __init__(self, x_vec=None, y_vec=None, w_vec=None):
+    def __init__(self, x_vec=None, y_vec=None, w_vec=None, P_vec=None):
         if any(vec is not None for vec in [x_vec, y_vec, w_vec]):
             if any(vec is None for vec in [x_vec, y_vec, w_vec]):
                 raise ValueError('If any vector is specified to initialize PortArray, all of them must be specified')
             nports = len(x_vec)
             if any(len(vec) != nports for vec in [x_vec, y_vec, w_vec]):
                 raise ValueError('x, y, and w vectors are not the same length')
+            self.x_vec = np.array(x_vec)
+            self.y_vec = np.array(y_vec)
+            self.w_vec = np.array(w_vec)
         else:
             self.x_vec = np.array([])
             self.y_vec = np.array([])
             self.w_vec = np.array([])
-        self._P_vec = None
+        if P_vec is None:
+            self._P_vec = None
+        else:
+            if len(P_vec) != len(x_vec):
+                raise ValueError('Power vector a different length than the number of ports')
+            self._P_vec = np.array(P_vec)
 
     def __len__(self):
         return len(self.x_vec)
@@ -220,15 +230,18 @@ class PortArray(object):
             where "width" is side length of a rectangular box
         '''
         obj = cls()
-        for port in box_spec:
-            x, y, w = port
+        for port_spec in box_spec:
+            x, y, w = port_spec
             obj.add_port(x, y, w)
         return obj
 
-    def to_boxspec(self):
+    def to_boxspec(self, with_powers=False):
         box_spec = []
         for iPort in range(len(self)):
-            box_spec.append(self[iPort][:3])
+            port_spec = self[iPort]
+            if len(port_spec) == 4 and not with_powers:
+                port_spec = port_spec[:3]
+            box_spec.append(port_spec)
         return box_spec
 
     @property
@@ -293,8 +306,15 @@ class PortArray(object):
                 "box_width": list(self.w_vec)}
         return pout
 
-    def to_JSON(self):
-        return json.dumps(self.to_dict(), sort_keys=True, indent=4)
+    @classmethod
+    def from_dict(cls, the_dict):
+        obj = cls(the_dict['x'], the_dict['y'], the_dict['box_width'],
+                  P_vec=the_dict.get('Total Power', None))
+        return obj
+
+    def __str__(self):
+        return str(self.to_boxspec(with_powers=True))
+
 
 
 #### Main function

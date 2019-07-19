@@ -411,7 +411,7 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
     #/////////////////////////////////////////////////////////////////////////////////////////////
 
     # find the gratings/ports
-    user_check_required = (box_spec is None)
+    # user_check_required = (box_spec is None)
     if box_spec is not None:
         if isinstance(box_spec, PortArray):
             port_arr = box_spec

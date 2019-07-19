@@ -14,7 +14,7 @@ def open_camera(camera_port=0):
 
 ## Low level conditioning
 # Number of frames to throw away while the camera adjusts to light levels
-ramp_frames = 5
+ramp_frames = 1
 
 def get_frames(nframes=1):
     with open_camera() as camera:

@@ -257,15 +257,17 @@ class PortArray(object):
             return self.P_vec
         return self.P_vec / np.max(self.P_vec)
 
-    def calc_powers(self, image):
-        ''' Looks at the port positions within the given image '''
+    def calc_powers(self, image, use_max=False):
+        ''' Looks at the port positions within the given image.
+            If use_max is False, the sum is used
+        '''
         self._P_vec = np.zeros(len(self))
         for iPort in range(len(self)):
             x = int(self.x_vec[iPort])
             y = int(self.y_vec[iPort])
             w = int(self.w_vec[iPort])
             subregion = image[x-w:x+w, y-w:y+w]
-            self._P_vec[iPort] = np.sum(subregion)
+            self._P_vec[iPort] = np.max(subregion) if use_max else np.sum(subregion)
         return self.P_vec
 
     def sort_by(self, keytype=None):

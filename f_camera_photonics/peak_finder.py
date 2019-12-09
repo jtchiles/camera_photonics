@@ -367,6 +367,12 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
 
     #++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+    #subtract darkfield (background) image from main data.
+    if cfg.use_darkfield:
+        img2_minus_bg = np.subtract(img2.astype(float), img_darkfield.astype(float))
+        img2_clipvals = np.clip(img2_minus_bg, 0, 255)
+        img2 = img2_clipvals.astype('uint8')
+
     #If the user chooses to use a "blanking box", open an ROI selector and null out everything inside the ROI.
     if cfg.use_blanking_box is True:
         print("\n\nSelect a region of pixels which you want to be zeroed out. Every pixel inside this box will be set to black. When you see the white box hit enter or space.")
@@ -392,14 +398,9 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
         img2_temp=img2_temp*0
         img2 = swap_pixel_data(img2_temp, img2,r)
 
-
-    #subtract darkfield (background) image from main data.
-    if cfg.use_darkfield:
-        img2=np.subtract(img2.astype(float),img_darkfield.astype(float))
-        img2[img2 < 0] = 0 # set all negative values to 0
-        print("The maximum value in the image after darkfield correction is: "+str(np.amax(img2)) +" (out of a camera limit of " +str(math.pow(2, cfg.bit_depth_per_pixel)-1)+")")
-
-    saturation_level=math.pow(2,cfg.bit_depth_per_pixel)*cfg.saturation_level_fraction #calculate the threshold for the saturation condition
+    # Saturation check
+    print("The maximum value in the image after darkfield correction is: "+str(np.amax(img2)) +" (out of a camera limit of " +str(math.pow(2, 8)-1)+")")
+    saturation_level = (math.pow(2,8) - np.min(img_darkfield)+1) * cfg.saturation_level_fraction #calculate the threshold for the saturation condition
     maxval = np.amax(img2) #find max value in the entire image
 
     #check if saturation has occurred

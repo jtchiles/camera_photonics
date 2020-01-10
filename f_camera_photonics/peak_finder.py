@@ -400,12 +400,13 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
 
     # Saturation check
     print("The maximum value in the image after darkfield correction is: "+str(np.amax(img2)) +" (out of a camera limit of " +str(math.pow(2, 8)-1)+")")
-    saturation_level = (math.pow(2,8) - np.min(img_darkfield)+1) * cfg.saturation_level_fraction #calculate the threshold for the saturation condition
+    darkfield_min = np.min(img_darkfield) if cfg.use_darkfield else 0
+    saturation_level = (math.pow(2,8) - darkfield_min + 1) * cfg.saturation_level_fraction #calculate the threshold for the saturation condition
     maxval = np.amax(img2) #find max value in the entire image
 
     #check if saturation has occurred
-    if(maxval >= saturation_level):
-        raise RuntimeError("Image Saturated!")
+    # if(maxval >= saturation_level):
+    #     raise RuntimeError("Image Saturated!")
 
 
     #/////////////////////////////////////////////////////////////////////////////////////////////
@@ -414,7 +415,7 @@ def f_camera_photonics(filename, box_spec=None, configfile=None, **config_overri
     #/////////////////////////////////////////////////////////////////////////////////////////////
 
     # find the gratings/ports
-    user_check_required = (box_spec is None) or True
+    user_check_required = (box_spec is None) and False
     if box_spec is not None:
         if isinstance(box_spec, PortArray):
             port_arr = box_spec
